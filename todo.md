@@ -474,3 +474,50 @@
 - [ ] Calibration meetings take 30 minutes, not 3 hours
 - [ ] System says "I don't know" when data is insufficient
 - [ ] Users call it "my leadership tool", not "the HR system"
+
+
+## Final 10% - Remaining Features for 100% Completion
+
+### UI Components
+- [x] Build Floating Action Button (FAB) for mobile quick capture
+- [x] Implement pull-to-refresh on Today Feed and People pages
+- [ ] Build observation timeline view with chronological display
+- [ ] Add sortable table component with column sorting
+
+### Living Review Draft
+- [x] Implement auto-generation after every 5th observation
+- [ ] Build review draft preview UI
+- [ ] Add edit capability for managers before finalizing
+- [x] Implement review section structure (values, performance dimensions)
+
+### Performance & Caching
+- [x] Implement query caching with 4-hour TTL for Ask interface
+- [x] Add graceful degradation for low-data scenarios
+- [x] Optimize database queries with proper indexes
+- [ ] Implement lazy loading for large lists
+
+### Meeting & Pulse Features
+- [ ] Build "Start Meeting" button from 1:1 Prep card
+- [ ] Implement meeting session timer with elapsed time
+- [ ] Build post-meeting observation prompt
+- [ ] Add pulse check trend visualization with charts
+
+### Access Control
+- [ ] Build "Report/challenge access" workflow
+- [ ] Create access grant system for cross-company permissions
+- [ ] Implement consent recording for access grants
+- [ ] Add access expiry date management
+
+### Testing & Bug Fixes
+- [ ] Write comprehensive unit tests for all tRPC procedures
+- [ ] Test all AI features (Ask, extraction, review generation)
+- [ ] Test mobile responsiveness on all pages
+- [ ] Fix any remaining bugs and edge cases
+- [ ] Verify zero TypeScript errors across entire codebase
+
+### Final Verification
+- [ ] Cross-check all features against original specification
+- [ ] Test complete user flows (capture → review → calibration)
+- [ ] Verify RBAC works correctly for all roles
+- [ ] Test PWA installation and offline functionality
+- [ ] Final performance optimization and polish

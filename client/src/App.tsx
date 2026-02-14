@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import CommandPalette from "@/components/CommandPalette";
+import CommandPalette from "./components/CommandPalette";
+import FloatingActionButton from "./components/FloatingActionButton";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
@@ -131,8 +132,9 @@ function App() {
       >
         <TooltipProvider>
           <Toaster />
-          <CommandPalette />
-          <Router />
+      <CommandPalette />
+      <FloatingActionButton />
+      <Router />
           <MobileBottomNav />
         </TooltipProvider>
       </ThemeProvider>
