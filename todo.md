@@ -37,10 +37,10 @@
 - [x] Implement WCAG 2.1 AA accessibility standards
 
 ### Authentication & RBAC
-- [ ] Extend user table with role field (Chairman, Group CEO, Group CHRO, CEO, CXO, CXO+1, Employee)
-- [ ] Implement role-based access control procedures
-- [ ] Build "Why can I see this?" tooltip system
-- [ ] Implement "Who viewed my profile?" audit trail
+- [x] Extend user table with role field (Chairman, Group CEO, Group CHRO, CEO, CXO, CXO+1, Employee)
+- [x] Implement role-based access control procedures
+- [x] Build "Why can I see this?" tooltip system
+- [x] Implement "Who viewed my profile?" audit trail
 - [ ] Build "Report/challenge access" workflow
 - [ ] Create access grant system for cross-company permissions
 
@@ -50,7 +50,7 @@
 - [x] Implement Command Palette (Cmd+K / Ctrl+K)
 - [ ] Build Floating Action Button (FAB) for mobile quick capture
 - [ ] Implement pull-to-refresh on mobile feeds
-- [ ] Build swipe gestures for approve/defer actions
+- [x] Build swipe gestures for approve/defer actions
 
 ## Phase 2: Observation Capture & Evidence (Weeks 1-2)
 
