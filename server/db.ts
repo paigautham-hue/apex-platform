@@ -271,6 +271,14 @@ export async function getPlanById(id: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getPlansByTenant(tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(plans)
+    .where(eq(plans.tenantId, tenantId))
+    .orderBy(desc(plans.createdAt));
+}
+
 export async function createMetric(metric: InsertMetric) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -303,11 +311,11 @@ export async function getMetricValues(metricId: number) {
 // EVIDENCE & OBSERVATIONS
 // ============================================================================
 
-export async function createEvidence(evidenceData: InsertEvidence) {
+export async function createEvidence(evidenceData: InsertEvidence): Promise<number> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(evidence).values(evidenceData);
-  return result;
+  return Number((result as any)[0]?.insertId || 0);
 }
 
 export async function getEvidenceByPerson(personId: number, tenantId: number) {
@@ -319,6 +327,15 @@ export async function getEvidenceByPerson(personId: number, tenantId: number) {
       eq(evidence.tenantId, tenantId),
       sql`JSON_CONTAINS(${evidence.taggedPersonIds}, ${JSON.stringify([personId])})`
     ))
+    .orderBy(desc(evidence.uploadDate));
+}
+
+export async function getEvidenceByTenant(tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(evidence)
+    .where(eq(evidence.tenantId, tenantId))
     .orderBy(desc(evidence.uploadDate));
 }
 

@@ -63,13 +63,13 @@
 - [ ] Implement observation editing and deletion
 
 ### Evidence Upload (F4 - Universal Drop Zone)
-- [ ] Build drag-and-drop file upload zone
-- [ ] Implement file type detection (Excel, PPT, PDF, images, documents)
-- [ ] Build AI-powered content extraction from uploads
-- [ ] Implement person tagging from uploaded content
-- [ ] Build evidence preview and confirmation UI
-- [ ] Implement evidence storage with S3 integration
-- [ ] Build evidence gallery and search
+- [x] Build drag-and-drop file upload zone
+- [x] Implement file type detection (Excel, PPT, PDF, images, documents)
+- [x] Build AI-powered content extraction from uploads
+- [x] Implement person tagging from uploaded content
+- [x] Build evidence preview and confirmation UI
+- [x] Implement evidence storage with S3 integration
+- [x] Build evidence gallery and search
 
 ### Weekly Pulse Check (F7)
 - [ ] Build weekly pulse check screen with direct reports

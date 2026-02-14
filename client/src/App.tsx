@@ -18,6 +18,7 @@ import Decisions from "./pages/Decisions";
 import Meetings from "./pages/Meetings";
 import AskInterface from "./pages/AskInterface";
 import Admin from "./pages/Admin";
+import EvidenceUpload from "./pages/EvidenceUpload";
 
 function Router() {
   return (
@@ -97,6 +98,12 @@ function Router() {
       <Route path="/admin">
         <DashboardLayout>
           <Admin />
+        </DashboardLayout>
+      </Route>
+      
+      <Route path="/evidence">
+        <DashboardLayout>
+          <EvidenceUpload />
         </DashboardLayout>
       </Route>
       

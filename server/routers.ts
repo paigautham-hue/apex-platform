@@ -5,6 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
 import { processAskQuery, getSuggestedQueries } from "./ai-ask";
+import { processUploadedFile } from "./ai-extraction";
 import * as db from "./db";
 import { CORE_VALUES, OBSERVATION_TEMPLATES, getDataSufficiencyLevel } from "../shared/constants";
 
@@ -180,6 +181,13 @@ const observationRouter = router({
   getTemplates: publicProcedure.query(() => {
     return OBSERVATION_TEMPLATES;
   }),
+  
+  // Get all observations by tenant (for analytics)
+  getByTenant: protectedProcedure
+    .input(z.object({ tenantId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getRecentObservations(input.tenantId, 1000);
+    }),
 });
 
 // ============================================================================
@@ -236,6 +244,13 @@ const planRouter = router({
     .input(z.object({ planId: z.number() }))
     .query(async ({ input }) => {
       return await db.getPlanById(input.planId);
+    }),
+  
+  // Get all plans by tenant (for analytics)
+  getByTenant: protectedProcedure
+    .input(z.object({ tenantId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getPlansByTenant(input.tenantId);
     }),
 });
 
@@ -555,6 +570,55 @@ export const appRouter = router({
   incentive: incentiveRouter,
   financial: financialRouter,
   constants: constantsRouter,
+  
+  // Evidence Upload router
+  evidence: router({
+    upload: protectedProcedure
+      .input(z.object({
+        fileData: z.string(), // base64 encoded
+        fileName: z.string(),
+        mimeType: z.string(),
+        tenantId: z.number(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        // Decode base64 file data
+        const fileBuffer = Buffer.from(input.fileData, 'base64');
+        
+        // Process file with AI extraction
+        const result = await processUploadedFile(
+          fileBuffer,
+          input.fileName,
+          input.mimeType,
+          input.tenantId
+        );
+        
+        // Get current person to use as uploader
+        const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+        if (!person) throw new TRPCError({ code: 'NOT_FOUND', message: 'Person not found' });
+        
+        // Store evidence record
+        const evidenceId = await db.createEvidence({
+          tenantId: input.tenantId,
+          uploaderPersonId: person.id,
+          type: 'DOCUMENT',
+          contentText: result.extraction.extractedText,
+          fileUrl: result.fileUrl,
+          sourceType: 'FINANCIAL_UPLOAD',
+          credibilityTier: 3,
+        });
+        
+        return {
+          evidenceId,
+          ...result,
+        };
+      }),
+    
+    list: protectedProcedure
+      .input(z.object({ tenantId: z.number() }))
+      .query(async ({ input }) => {
+        return await db.getEvidenceByTenant(input.tenantId);
+      }),
+  }),
   
   // AI Ask router
   ask: router({
