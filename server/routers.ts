@@ -434,6 +434,51 @@ const decisionRouter = router({
 // ============================================================================
 
 const meetingRouter = router({
+  // Create/log meeting
+  create: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      participantPersonId: z.number(),
+      meetingType: z.enum(["ONE_ON_ONE", "TEAM", "REVIEW", "CALIBRATION"]),
+      scheduledAt: z.date(),
+      notes: z.string(),
+      actionItems: z.array(z.string()).optional(),
+      sentiment: z.enum(["POSITIVE", "NEUTRAL", "CHALLENGING"]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!person) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Person not found"
+        });
+      }
+
+      // Create meeting record
+      const result = await db.createMeeting({
+        tenantId: input.tenantId,
+        managerPersonId: person.id,
+        subjectPersonId: input.participantPersonId,
+        type: input.meetingType,
+        startedAt: input.scheduledAt,
+      });
+      
+      // Create observation with meeting notes
+      if (input.notes) {
+        await db.createObservation({
+          tenantId: input.tenantId,
+          observerPersonId: person.id,
+          subjectPersonId: input.participantPersonId,
+          text: input.notes,
+          direction: input.sentiment === 'POSITIVE' ? 'POSITIVE' : input.sentiment === 'CHALLENGING' ? 'NEEDS_IMPROVEMENT' : 'NEUTRAL',
+          source: 'MEETING_LOGGER',
+          meetingId: Number((result as any)[0]?.insertId || 0),
+        });
+      }
+
+      return { success: true };
+    }),
+  
   // Start meeting
   start: protectedProcedure
     .input(z.object({
@@ -522,6 +567,51 @@ const financialRouter = router({
     }))
     .query(async ({ input }) => {
       return await db.getFinancialTemplatesByOrgUnit(input.orgUnitId, input.tenantId);
+    }),
+  
+  // List all uploads for tenant
+  listUploads: protectedProcedure
+    .input(z.object({ tenantId: z.number() }))
+    .query(async ({ input }) => {
+      // Get all org units for tenant and fetch uploads
+      const orgUnits = await db.getOrgUnitsByTenant(input.tenantId);
+      const uploads = await Promise.all(
+        orgUnits.map((unit: any) => db.getFinancialUploadsByOrgUnit(unit.id, input.tenantId))
+      );
+      return uploads.flat();
+    }),
+  
+  // Create financial upload
+  createUpload: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      orgUnitId: z.number(),
+      period: z.string(),
+      extractedMetrics: z.array(z.any()),
+      status: z.enum(["PENDING", "EXTRACTED", "CONFIRMED", "REJECTED"]),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!person) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Person not found"
+        });
+      }
+
+      const result = await db.createFinancialUpload({
+        tenantId: input.tenantId,
+        orgUnitId: input.orgUnitId,
+        uploaderPersonId: person.id,
+        fileName: `financial-${input.period}.xlsx`,
+        fileUrl: '',
+        fileHash: '',
+        periodDate: new Date(),
+        extractedData: { metrics: input.extractedMetrics },
+        status: input.status,
+      });
+
+      return { success: true };
     }),
 });
 
