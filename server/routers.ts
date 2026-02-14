@@ -25,11 +25,29 @@ const tenantRouter = router({
     return tenant;
   }),
 
-  // List org units for tenant
+   // Get org units for tenant
   listOrgUnits: protectedProcedure
     .input(z.object({ tenantId: z.number() }))
     .query(async ({ input }) => {
       return await db.getOrgUnitsByTenant(input.tenantId);
+    }),
+  
+  // Create org unit
+  createOrgUnit: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      name: z.string(),
+      type: z.enum(["HOLDING_COMPANY", "PORTFOLIO_COMPANY", "FUNCTION", "TEAM", "SUB_BUSINESS"]),
+      parentId: z.number().nullable(),
+    }))
+    .mutation(async ({ input }) => {
+      const result = await db.createOrgUnit({
+        tenantId: input.tenantId,
+        name: input.name,
+        type: input.type,
+        parentOrgUnitId: input.parentId,
+      });
+      return { success: true };
     }),
 });
 
@@ -619,6 +637,42 @@ const financialRouter = router({
 // CONSTANTS ROUTER (Public data)
 // ============================================================================
 
+// ============================================================================
+// CALIBRATION ROUTER
+// ============================================================================
+
+const calibrationRouter = router({
+  // Start calibration session
+  startSession: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      orgUnitId: z.number(),
+      period: z.string(),
+      mode: z.enum(["SYNC", "ASYNC"]),
+    }))
+    .mutation(async ({ input }) => {
+      const result = await db.createCalibrationSession({
+        tenantId: input.tenantId,
+        orgUnitId: input.orgUnitId,
+        period: input.period,
+        status: "ASYNC_REVIEW",
+      });
+      return { success: true };
+    }),
+  
+  // List calibration sessions
+  listSessions: protectedProcedure
+    .input(z.object({ tenantId: z.number() }))
+    .query(async ({ input }) => {
+      // Get all org units and fetch calibration sessions
+      const orgUnits = await db.getOrgUnitsByTenant(input.tenantId);
+      const sessions = await Promise.all(
+        orgUnits.map((unit: any) => db.getCalibrationSessionsByOrgUnit(unit.id, input.tenantId))
+      );
+      return sessions.flat();
+    }),
+});
+
 const constantsRouter = router({
   getCoreValues: publicProcedure.query(() => {
     return CORE_VALUES;
@@ -659,6 +713,7 @@ export const appRouter = router({
   meeting: meetingRouter,
   incentive: incentiveRouter,
   financial: financialRouter,
+  calibration: calibrationRouter,
   constants: constantsRouter,
   
   // Evidence Upload router
