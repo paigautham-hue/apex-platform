@@ -1,0 +1,476 @@
+# APEX Platform TODO
+
+## Phase 1: Foundation & Core Infrastructure (Weeks 1-2)
+
+### Database Schema & Multi-Tenant Architecture
+- [x] Implement PERSON table with hiring thesis and data sufficiency tracking
+- [x] Implement ROLE table with hierarchical reporting structure
+- [x] Implement ORG_UNIT table with multi-company, multi-sector configuration
+- [x] Implement PLAN table for goal cascading
+- [x] Implement METRIC and METRIC_VALUE tables for KPI tracking
+- [x] Implement EVIDENCE table with credibility tiers and cool-down mechanism
+- [x] Implement MEMORY table for AI-synthesized intelligence
+- [x] Implement ASSESSMENT table for performance reviews
+- [x] Implement REVIEW table with contestability workflow
+- [x] Implement OBSERVATION table for quick captures
+- [x] Implement SELF_REFLECTION table with trust ramp
+- [x] Implement DECISION table for decision journal
+- [x] Implement MEETING table for 1:1 tracking
+- [x] Implement INCENTIVE_CONFIG table with configurable slabs
+- [x] Implement INCENTIVE_COMPUTATION table for payout calculations
+- [x] Implement CALIBRATION_SESSION table for async calibration
+- [x] Implement NOTIFICATION table with budget management
+- [x] Implement FINANCIAL_UPLOAD and FINANCIAL_TEMPLATE tables
+- [x] Set up tenant isolation with row-level security
+- [x] Create database indexes for performance optimization
+
+### Design System & Visual Language
+- [x] Implement color palette (Primary Blue, Accent Blue, Success Green, Warning Amber, Alert Red)
+- [x] Set up Inter font for primary text and JetBrains Mono for financial numbers
+- [x] Configure Tailwind CSS with custom spacing and layout system
+- [x] Build Card component with subtle shadows and hover states
+- [x] Build Button components (Primary, Secondary, Ghost, Danger)
+- [x] Build Input fields with voice input button integration
+- [ ] Build Table component with sortable columns
+- [x] Implement dark mode support with system preference detection
+- [x] Set up responsive breakpoints (Mobile < 768px, Tablet 768-1024px, Desktop > 1024px)
+- [x] Implement WCAG 2.1 AA accessibility standards
+
+### Authentication & RBAC
+- [ ] Extend user table with role field (Chairman, Group CEO, Group CHRO, CEO, CXO, CXO+1, Employee)
+- [ ] Implement role-based access control procedures
+- [ ] Build "Why can I see this?" tooltip system
+- [ ] Implement "Who viewed my profile?" audit trail
+- [ ] Build "Report/challenge access" workflow
+- [ ] Create access grant system for cross-company permissions
+
+### Navigation & Layout
+- [x] Build desktop sidebar navigation (Today, People, Capture, Goals, Analytics, Admin)
+- [ ] Build mobile bottom tab bar (Today, People, Capture+, Me)
+- [ ] Implement Command Palette (Cmd+K / Ctrl+K)
+- [ ] Build Floating Action Button (FAB) for mobile quick capture
+- [ ] Implement pull-to-refresh on mobile feeds
+- [ ] Build swipe gestures for approve/defer actions
+
+## Phase 2: Observation Capture & Evidence (Weeks 1-2)
+
+### Observation Capture (F10 - Templates)
+- [x] Build quick capture modal with person selector
+- [x] Implement one-tap observation templates (Strong delivery, Creative solution, etc.)
+- [x] Build voice capture using Web Speech API
+- [x] Implement observation tagging (values, performance dimensions)
+- [ ] Build observation timeline view
+- [ ] Implement observation editing and deletion
+
+### Evidence Upload (F4 - Universal Drop Zone)
+- [ ] Build drag-and-drop file upload zone
+- [ ] Implement file type detection (Excel, PPT, PDF, images, documents)
+- [ ] Build AI-powered content extraction from uploads
+- [ ] Implement person tagging from uploaded content
+- [ ] Build evidence preview and confirmation UI
+- [ ] Implement evidence storage with S3 integration
+- [ ] Build evidence gallery and search
+
+### Weekly Pulse Check (F7)
+- [ ] Build weekly pulse check screen with direct reports
+- [ ] Implement three-button rating (Doing Great, Something to Note, Needs Attention)
+- [ ] Build quick-capture field for yellow/red taps
+- [ ] Implement pulse check scheduling and reminders
+- [ ] Build pulse check trend visualization
+
+### Meeting Logger (F8)
+- [ ] Build "Start Meeting" button from 1:1 Prep card
+- [ ] Implement meeting session timer
+- [ ] Build post-meeting observation prompt
+- [ ] Create Meeting record with timeline integration
+- [ ] Implement meeting history view
+
+## Phase 3: AI Intelligence Layer (Weeks 3-4)
+
+### Ask Interface (Natural Language Queries)
+- [x] Build Ask input field with voice support
+- [x] Implement suggested queries as pills
+- [x] Build Answer Card structure with Status Line, Top Insights, Performance vs Plan
+- [x] Implement RAG pipeline (Parse, Expand, Route, Retrieve, Rerank, JIT Verify, Generate)
+- [x] Build confidence and coverage indicators
+- [x] Implement suggested actions and follow-up questions
+- [ ] Build query caching with 4-hour TTL
+- [ ] Implement graceful degradation for low-data scenarios
+
+### 1:1 Prep Mode
+- [ ] Build 1:1 Prep card generation
+- [ ] Implement "Top Wins to Acknowledge" section
+- [ ] Build "One Coaching Focus" section
+- [ ] Generate suggested questions to ask
+- [ ] Implement "Start Meeting" integration with Meeting Logger
+- [ ] Build prep card caching and refresh logic
+
+### Pre-Computed Insights (F3)
+- [ ] Build nightly batch insight generation
+- [ ] Implement insight types (upcoming events, data changes, pattern alerts, goal progress)
+- [ ] Build insight prioritization algorithm
+- [ ] Implement insight queue management
+- [ ] Build insight display in Today Feed
+
+### Priority Zero Card (F1)
+- [ ] Build Priority Zero card for Chairman/CEO
+- [ ] Implement cross-portfolio priority selection algorithm
+- [ ] Build urgency and impact scoring
+- [ ] Implement staleness detection
+- [ ] Build action buttons for Priority Zero items
+
+### Smart Command Bar (F14)
+- [ ] Build Cmd+K / Ctrl+K command palette
+- [ ] Implement command parsing and routing
+- [ ] Build recent commands history
+- [ ] Implement command learning from usage patterns
+- [ ] Build command suggestions
+
+## Phase 4: Goals, Financial Data & Incentives (Month 2)
+
+### Goal Cascading Module
+- [ ] Build natural language goal input
+- [ ] Implement AI goal parsing into structured objects
+- [ ] Build goal hierarchy tree visualization
+- [ ] Implement parent-child goal linking
+- [ ] Build weight assignment UI matching AVP framework
+- [ ] Implement goal rollup computation
+- [ ] Build auto-linking of observations to goals (F5)
+- [ ] Implement goal progress tracking
+
+### Financial Upload Wizard
+- [ ] Build file validation (type, size, encoding, corruption)
+- [ ] Implement duplicate detection with SHA-256 hashing
+- [ ] Build AI-powered metric extraction from Excel/PPT/PDF
+- [ ] Implement extraction preview with confidence scoring
+- [ ] Build manual correction UI for low-confidence extractions
+- [ ] Implement template learning system (FINANCIAL_TEMPLATE)
+- [ ] Build reconciliation with existing data
+- [ ] Implement period detection and validation
+- [ ] Build financial data timeline view
+
+### Incentive Configuration
+- [ ] Build incentive config UI for CHRO/admin
+- [ ] Implement slab structure configuration
+- [ ] Build eligibility threshold settings
+- [ ] Implement metric weight configuration
+- [ ] Build CXO cascade override settings
+- [ ] Implement OFCF formula configuration
+- [ ] Build negative target handling configuration
+
+### Incentive Simulator (F6)
+- [x] Build interactive incentive dashboard
+- [x] Implement metric sliders for what-if modeling
+- [x] Build real-time payout calculation
+- [ ] Implement projection logic (YTD extrapolation)
+- [ ] Build eligibility gate display
+- [ ] Implement scenario saving and comparison
+- [ ] Build year-over-year comparison view
+
+### Incentive Computation Engine
+- [ ] Implement eligibility gate check
+- [ ] Build achievement percentage calculation (positive and negative targets)
+- [ ] Implement slab payout lookup
+- [ ] Build weighted financial score calculation
+- [ ] Implement non-financial score integration
+- [ ] Build total payout computation
+- [ ] Implement quarterly and annual computation cycles
+
+## Phase 5: AI Reviews & Values Assessment (Month 3)
+
+### Living Review Draft (F9)
+- [ ] Build background draft generation after every 5th observation
+- [ ] Implement draft synthesis from all evidence sources
+- [ ] Build structured review sections (Performance Highlights, Leadership, Development Areas, Values Alignment)
+- [ ] Implement year-over-year progress tracking
+- [ ] Build manager editing interface
+- [ ] Implement review sharing workflow
+- [ ] Build employee response interface
+
+### Contestability Workflow
+- [ ] Build employee review acknowledgment UI
+- [ ] Implement challenge submission with counter-evidence
+- [ ] Build manager review of challenges
+- [ ] Implement rating revision with rationale
+- [ ] Build escalation to skip-level or CHRO
+- [ ] Implement audit trail logging
+- [ ] Build contestation window management (5 business days)
+
+### Values Assessment Engine
+- [ ] Build automated values scoring from evidence
+- [ ] Implement behavior mapping to 5 core values
+- [ ] Build radar chart visualization
+- [ ] Implement confidence and coverage display
+- [ ] Build anti-gaming measures (source weighting, burst detection)
+- [ ] Implement evidence weighting tiers (1-5)
+- [ ] Build time decay algorithm
+- [ ] Implement values profile updates
+
+### Milestone Assessments (F15)
+- [ ] Build auto-trigger for 30/60/90/180/365 day milestones
+- [ ] Implement milestone prep card generation
+- [ ] Build structured assessment questions
+- [ ] Implement fit determination (STRONG_FIT, DEVELOPING, CONCERNS, NOT_FIT)
+- [ ] Build coaching plan integration for concerns
+- [ ] Implement milestone summary sharing
+
+### Calibration (F17 - Async)
+- [ ] Build async calibration workflow
+- [ ] Implement disagreement detection algorithm
+- [ ] Build calibration session management
+- [ ] Implement changes log with rationale
+- [ ] Build live session scheduling for unresolved cases
+- [ ] Implement calibration completion workflow
+
+## Phase 6: Today Feed & Personalization
+
+### Today Feed (Default Home Screen)
+- [ ] Build personalized feed for Chairman/Group CEO (Priority Zero, Insights, Portfolio Health)
+- [ ] Build personalized feed for CEO (Incentive Simulator, Insights, Team Pulse, Goal Progress)
+- [ ] Build personalized feed for Manager (1:1 Prep, Living Review Draft, Pulse Check, Team Observations)
+- [ ] Build personalized feed for Employee (Achievement Suggestions, Self-Reflection, Values Profile, Development Plan)
+- [ ] Implement feed caching and refresh logic
+- [ ] Build pull-to-refresh on mobile
+
+### Cold-Start Experience
+- [ ] Build welcome screen for Day 1 users
+- [ ] Implement onboarding checklist
+- [ ] Build quick-start guides per persona
+- [ ] Implement progressive disclosure of features
+- [ ] Build data sufficiency level indicators (LEVEL 0-4)
+- [ ] Implement low-data profile warnings
+
+### Notification System (F13 - Budget)
+- [ ] Build notification budget management (max 3/day)
+- [ ] Implement notification prioritization algorithm
+- [ ] Build notification types (Priority Zero, Insight, Reminder, Milestone, Pulse Check, Achievement Suggestion)
+- [ ] Implement "More" section for overflow notifications
+- [ ] Build notification preferences UI
+- [ ] Implement browser push notifications
+
+## Phase 7: Strategic Features (Months 5-6)
+
+### Capability Discovery Engine
+- [ ] Build natural language capability queries
+- [ ] Implement capability profile generation (Explicit, Demonstrated, Latent)
+- [ ] Build capability search with confidence levels
+- [ ] Implement capability profile card on person profiles
+- [ ] Build cross-person capability comparison
+
+### Self-Reflection Journal (F11 - Trust Ramp)
+- [ ] Build private journal entry UI
+- [ ] Implement trust ramp (Month 1: private, Month 2: gentle prompt, Month 3: full sharing)
+- [ ] Build entry types (Achievements, Learnings, Challenges, Cross-Functional, Feedback, Development)
+- [ ] Implement achievement auto-suggestions (F12)
+- [ ] Build corroboration system with manager observations
+- [ ] Implement visibility controls (Private, Shared with Manager, Included in Review)
+
+### Decision Journal
+- [ ] Build decision entry form (Decision, Assumptions, Expected Outcome, Risks, Review Date)
+- [ ] Implement retrospective workflow
+- [ ] Build decision quality tracking
+- [ ] Implement pattern recognition for decision-making
+- [ ] Build decision history view
+
+### Board Reporting & Governance
+- [ ] Build CEO assessment governance workflow (Self-Review → Chairman → Board → Sign-off)
+- [ ] Implement board pack generator
+- [ ] Build quarterly leadership report
+- [ ] Implement PDF export for board meetings
+
+### Coaching Mode (F18)
+- [ ] Build coaching workflow (What happened, Value, Behavior contract, Support, Follow-up)
+- [ ] Implement evidence pre-fill
+- [ ] Build behavior contract templates
+- [ ] Implement follow-up reminders
+- [ ] Build coaching history view
+
+## Phase 8: PWA & Mobile Optimization
+
+### Progressive Web App Setup
+- [ ] Create service worker with Workbox
+- [ ] Implement offline caching strategy
+- [ ] Build offline queue for observations and uploads
+- [ ] Implement background sync
+- [ ] Create web app manifest
+- [ ] Build install prompt (after 3rd visit)
+- [ ] Implement push notification permission request (after 3+ sessions)
+- [ ] Build notification types (Priority Zero, Pulse Check, Achievement Suggestions)
+
+### Mobile Optimization
+- [ ] Optimize touch targets (minimum 48px height)
+- [ ] Implement swipe gestures (right to approve, left to defer)
+- [ ] Build mobile-optimized tables with horizontal scroll
+- [ ] Implement mobile-friendly charts and visualizations
+- [ ] Build mobile navigation with bottom tab bar
+- [ ] Optimize images and assets for mobile bandwidth
+
+## Phase 9: Voice Features
+
+### Web Speech API Integration
+- [ ] Implement voice input for observations (SpeechRecognition)
+- [ ] Build voice input for Ask queries
+- [ ] Implement voice transcription display
+- [ ] Build voice input confirmation UI
+- [ ] Implement error handling for unsupported browsers
+- [ ] Build voice input permission request
+
+## Phase 10: AI/LLM Integration
+
+### LLM Abstraction Layer
+- [ ] Build AI Service Layer with model router
+- [ ] Implement prompt template registry
+- [ ] Build cache manager for AI responses
+- [ ] Implement model selection by task type
+- [ ] Build fallback chain (Primary → Fallback → Cached → Degradation)
+- [ ] Implement embedding migration plan
+- [ ] Build automatic quality monitoring
+- [ ] Implement hallucination prevention with mandatory citations
+
+### RAG & Vector Search
+- [ ] Set up vector database (Pinecone or pgvector)
+- [ ] Implement embedding generation for observations, evidence, reviews
+- [ ] Build hybrid search (vector similarity + metadata filters + keyword boost)
+- [ ] Implement reranking with cross-encoder
+- [ ] Build JIT memory verification
+- [ ] Implement memory formation triggers
+- [ ] Build memory expiry and historical marking
+
+### Content Safety
+- [ ] Implement content-as-data isolation
+- [ ] Build instruction stripping for uploaded content
+- [ ] Implement sensitive content detection
+- [ ] Build bias checks for AI outputs
+- [ ] Implement hallucination prevention with citation verification
+
+## Phase 11: Analytics & Visualizations
+
+### Portfolio Health Dashboard
+- [ ] Build cross-company health overview
+- [ ] Implement color-coded health indicators
+- [ ] Build drill-down to company details
+- [ ] Implement trend visualization
+- [ ] Build export functionality
+
+### Performance Visualizations
+- [ ] Build radar charts for values profiles
+- [ ] Implement heatmaps for portfolio/function health
+- [ ] Build progress bars with gradient fills
+- [ ] Implement interactive drill-down on data points
+- [ ] Build skeleton loading states with shimmer effect
+
+### Financial Dashboards
+- [ ] Build metric tracking dashboards
+- [ ] Implement driver tree visualization
+- [ ] Build YTD vs Target comparisons
+- [ ] Implement trend analysis charts
+- [ ] Build financial report export
+
+## Phase 12: Admin & Configuration
+
+### Org Hierarchy Management
+- [ ] Build org chart editor
+- [ ] Implement person and role management
+- [ ] Build org unit configuration (business type, industry, currency, fiscal year)
+- [ ] Implement custom metrics configuration
+- [ ] Build custom goal categories configuration
+
+### Values Framework Configuration
+- [ ] Build values framework editor
+- [ ] Implement behavioral definitions configuration
+- [ ] Build anti-behaviors configuration
+- [ ] Implement tenant-level values customization
+
+### System Configuration
+- [ ] Build tenant settings management
+- [ ] Implement multi-language support (English, Hindi minimum)
+- [ ] Build notification budget configuration
+- [ ] Implement data retention policies
+- [ ] Build audit trail viewer
+
+## Phase 13: Data Protection & Compliance
+
+### GDPR Compliance
+- [ ] Implement "Download My Data" export (JSON/CSV)
+- [ ] Build Right to Rectification workflow
+- [ ] Implement Right to Erasure with 30-day grace period
+- [ ] Build "Why this score?" explanation UI
+- [ ] Implement audit trail for all data access
+- [ ] Build quarterly review workflow for CHRO
+
+### Data Retention
+- [ ] Implement 7-year retention for departed employees
+- [ ] Build AI summary deletion with source data
+- [ ] Implement vector embedding purging
+- [ ] Build data archival workflow
+
+## Phase 14: Testing & Sample Data
+
+### Sample Data (MGPS - Test Company)
+- [ ] Seed tenant: The Manipal Group
+- [ ] Create portfolio company: MGPS (Printing & Publishing, Growth stage)
+- [ ] Create sample persons (Shashiranjan CEO, 3-4 CXOs, 2-3 CXO+1 per CXO, Chairman, Group CHRO)
+- [ ] Seed MGPS financial targets (Revenue ₹675 Cr, EBITDA ₹47.53 Cr, OFCF ₹-23.39 Cr)
+- [ ] Create 11 CEO goals across 6 categories
+- [ ] Seed incentive structure (60% Financial, 40% Non-Financial)
+- [ ] Create sample observations and evidence
+- [ ] Seed sample financial uploads
+
+### Multi-Company Testing
+- [ ] Create second portfolio company in different industry (Healthcare)
+- [ ] Create third portfolio company (Education)
+- [ ] Test cross-company data isolation
+- [ ] Test cross-company benchmarking
+- [ ] Test portfolio-level aggregation
+
+### Testing & QA
+- [ ] Test all RBAC rules across personas
+- [ ] Test observation capture flow end-to-end
+- [ ] Test financial upload and extraction
+- [ ] Test incentive computation with positive and negative targets
+- [ ] Test review generation and contestability
+- [ ] Test calibration workflow
+- [ ] Test PWA offline functionality
+- [ ] Test voice input on multiple browsers
+- [ ] Test mobile responsive design on all breakpoints
+- [ ] Test dark mode across all pages
+- [ ] Test accessibility with keyboard navigation and screen readers
+- [ ] Perform cross-browser testing (Chrome, Firefox, Safari, Edge)
+- [ ] Test performance with large datasets
+- [ ] Test data export and import
+
+## Phase 15: Documentation & Deployment
+
+### Documentation
+- [ ] Write user guide for each persona (Chairman, CEO, Manager, Employee)
+- [ ] Create admin guide for CHRO
+- [ ] Document API endpoints
+- [ ] Create troubleshooting guide
+- [ ] Write deployment guide
+
+### Performance Optimization
+- [ ] Optimize database queries with indexes
+- [ ] Implement query result caching with Redis
+- [ ] Optimize image loading with lazy loading
+- [ ] Implement code splitting for faster initial load
+- [ ] Optimize bundle size
+- [ ] Implement CDN for static assets
+
+### Deployment Preparation
+- [ ] Configure production environment variables
+- [ ] Set up database backups
+- [ ] Configure monitoring and logging
+- [ ] Set up error tracking
+- [ ] Prepare rollback plan
+- [ ] Create deployment checklist
+
+## Success Criteria Validation
+
+- [ ] Chairman opens APEX first thing every morning for Priority Zero card
+- [ ] CEOs check Incentive Simulator weekly
+- [ ] Managers capture observations naturally with templates (3 seconds)
+- [ ] Employees trust the system (Trust Ramp validation)
+- [ ] Review writing takes 20 minutes, not 3 hours
+- [ ] Calibration meetings take 30 minutes, not 3 hours
+- [ ] System says "I don't know" when data is insufficient
+- [ ] Users call it "my leadership tool", not "the HR system"

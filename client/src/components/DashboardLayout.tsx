@@ -21,15 +21,24 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { LayoutDashboard, LogOut, PanelLeft, Users } from "lucide-react";
+import { Home, Users, Target, BarChart3, MessageSquare, Calendar, Settings, LogOut, PanelLeft, Plus, Brain, FileText, DollarSign, Lightbulb } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
 const menuItems = [
-  { icon: LayoutDashboard, label: "Page 1", path: "/" },
-  { icon: Users, label: "Page 2", path: "/some-path" },
+  { icon: Home, label: "Today", path: "/today" },
+  { icon: Users, label: "People", path: "/people" },
+  { icon: Plus, label: "Capture", path: "/capture" },
+  { icon: Brain, label: "AI Ask", path: "/ask" },
+  { icon: Target, label: "Goals", path: "/goals" },
+  { icon: BarChart3, label: "Analytics", path: "/analytics" },
+  { icon: DollarSign, label: "Incentives", path: "/incentives" },
+  { icon: Lightbulb, label: "Reflections", path: "/reflections" },
+  { icon: FileText, label: "Decisions", path: "/decisions" },
+  { icon: Calendar, label: "Meetings", path: "/meetings" },
+  { icon: Settings, label: "Admin", path: "/admin" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

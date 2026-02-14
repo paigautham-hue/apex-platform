@@ -1,6 +1,9 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
+/* Import Inter for body text and JetBrains Mono for financial numbers */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
@@ -43,39 +46,46 @@
 }
 
 :root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
+  /* APEX Color Palette */
+  --primary-blue: oklch(0.42 0.10 240); /* #1B4F72 */
+  --accent-blue: oklch(0.58 0.12 235); /* #2E86C1 */
+  --success-green: oklch(0.62 0.15 155); /* #27AE60 */
+  --warning-amber: oklch(0.72 0.15 65); /* #F39C12 */
+  --alert-red: oklch(0.60 0.20 25); /* #E74C3C */
+  
+  --primary: var(--primary-blue);
+  --primary-foreground: oklch(1.0 0 0);
+  --sidebar-primary: var(--accent-blue);
+  --sidebar-primary-foreground: oklch(1.0 0 0);
+  --chart-1: var(--primary-blue);
+  --chart-2: var(--accent-blue);
+  --chart-3: var(--success-green);
+  --chart-4: var(--warning-amber);
+  --chart-5: var(--alert-red);
   --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.235 0.015 65);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
+  --background: oklch(0.98 0.005 240);
+  --foreground: oklch(0.32 0.02 240);
+  --card: oklch(1.0 0 0);
+  --card-foreground: oklch(0.32 0.02 240);
+  --popover: oklch(1.0 0 0);
+  --popover-foreground: oklch(0.32 0.02 240);
+  --secondary: var(--accent-blue);
+  --secondary-foreground: oklch(1.0 0 0);
+  --muted: oklch(0.95 0.005 240);
+  --muted-foreground: oklch(0.50 0.02 240);
+  --accent: var(--accent-blue);
+  --accent-foreground: oklch(1.0 0 0);
+  --destructive: var(--alert-red);
+  --destructive-foreground: oklch(1.0 0 0);
+  --border: oklch(0.91 0.005 240);
+  --input: oklch(0.91 0.005 240);
+  --ring: var(--accent-blue);
+  --sidebar: oklch(1.0 0 0);
+  --sidebar-foreground: oklch(0.32 0.02 240);
+  --sidebar-accent: oklch(0.95 0.005 240);
+  --sidebar-accent-foreground: oklch(0.32 0.02 240);
+  --sidebar-border: oklch(0.91 0.005 240);
+  --sidebar-ring: var(--accent-blue);
 }
 
 .dark {
@@ -119,6 +129,44 @@
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  h1 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    line-height: 1.2;
+  }
+  
+  h2 {
+    font-size: 1.375rem;
+    font-weight: 600;
+    line-height: 1.3;
+  }
+  
+  h3 {
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  
+  @media (max-width: 768px) {
+    body {
+      font-size: 14px;
+    }
+    h1 {
+      font-size: 1.5rem;
+    }
+    h2 {
+      font-size: 1.25rem;
+    }
+    h3 {
+      font-size: 1rem;
+    }
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
@@ -173,5 +221,111 @@
       padding-right: 2rem;
       max-width: 1280px; /* Standard content width */
     }
+  }
+}
+/* APEX-specific utility classes */
+.financial-number {
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 1.125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.caption {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--muted-foreground);
+}
+
+/* Status badges */
+.badge-star {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+  background-color: var(--success-green);
+  color: white;
+}
+
+.badge-high-potential {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+  background-color: var(--accent-blue);
+  color: white;
+}
+
+.badge-values-risk {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+  background-color: var(--warning-amber);
+  color: white;
+}
+
+.badge-needs-development {
+  @apply inline-flex items-center px-3 py-1 rounded-full text-sm font-medium;
+  background-color: var(--alert-red);
+  color: white;
+}
+
+/* Touch target for mobile */
+.touch-target {
+  min-height: 48px;
+  min-width: 48px;
+}
+
+/* Skeleton loading with shimmer */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.skeleton {
+  @apply bg-muted rounded;
+  background-image: linear-gradient(
+    90deg,
+    var(--muted) 0px,
+    var(--muted-foreground) 40px,
+    var(--muted) 80px
+  );
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: var(--muted);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: var(--foreground);
+}
+
+/* Gradient progress bar */
+.gradient-progress {
+  background: linear-gradient(
+    90deg,
+    var(--accent-blue) 0%,
+    var(--success-green) 100%
+  );
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

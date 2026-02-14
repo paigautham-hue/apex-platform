@@ -1,0 +1,57 @@
+{
+  "name": "APEX - AI-Powered Executive Excellence Platform",
+  "short_name": "APEX",
+  "description": "Transform how you manage performance, develop leaders, and drive organizational excellence",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F8FAFB",
+  "theme_color": "#1B4F72",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Quick Capture",
+      "short_name": "Capture",
+      "description": "Capture an observation",
+      "url": "/capture",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Today Feed",
+      "short_name": "Today",
+      "description": "View your personalized feed",
+      "url": "/today",
+      "icons": [{ "src": "/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "share_target": {
+    "action": "/capture",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "url": "url",
+      "files": [
+        {
+          "name": "evidence",
+          "accept": ["image/*", "application/pdf", ".xlsx", ".pptx"]
+        }
+      ]
+    }
+  }
+}
