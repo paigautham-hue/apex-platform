@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
+import NotificationCenter from "./NotificationCenter";
 import { Home, Users, Target, BarChart3, MessageSquare, Calendar, Settings, LogOut, PanelLeft, Plus, Brain, FileText, DollarSign, Lightbulb } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
@@ -264,6 +265,7 @@ function DashboardLayoutContent({
                 </div>
               </div>
             </div>
+            <NotificationCenter />
           </div>
         )}
         <main className="flex-1 p-4">{children}</main>

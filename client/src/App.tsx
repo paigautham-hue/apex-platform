@@ -1,6 +1,7 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import CommandPalette from "@/components/CommandPalette";
+import MobileBottomNav from "@/components/MobileBottomNav";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
@@ -20,6 +21,7 @@ import Meetings from "./pages/Meetings";
 import AskInterface from "./pages/AskInterface";
 import Admin from "./pages/Admin";
 import EvidenceUpload from "./pages/EvidenceUpload";
+import WeeklyPulseCheck from "./pages/WeeklyPulseCheck";
 
 function Router() {
   return (
@@ -108,6 +110,12 @@ function Router() {
         </DashboardLayout>
       </Route>
       
+      <Route path="/pulse">
+        <DashboardLayout>
+          <WeeklyPulseCheck />
+        </DashboardLayout>
+      </Route>
+      
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
@@ -125,6 +133,7 @@ function App() {
           <Toaster />
           <CommandPalette />
           <Router />
+          <MobileBottomNav />
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

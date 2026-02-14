@@ -46,8 +46,8 @@
 
 ### Navigation & Layout
 - [x] Build desktop sidebar navigation (Today, People, Capture, Goals, Analytics, Admin)
-- [ ] Build mobile bottom tab bar (Today, People, Capture+, Me)
-- [ ] Implement Command Palette (Cmd+K / Ctrl+K)
+- [x] Build mobile bottom tab bar (Today, People, Capture+, Me)
+- [x] Implement Command Palette (Cmd+K / Ctrl+K)
 - [ ] Build Floating Action Button (FAB) for mobile quick capture
 - [ ] Implement pull-to-refresh on mobile feeds
 - [ ] Build swipe gestures for approve/defer actions
@@ -72,9 +72,9 @@
 - [x] Build evidence gallery and search
 
 ### Weekly Pulse Check (F7)
-- [ ] Build weekly pulse check screen with direct reports
-- [ ] Implement three-button rating (Doing Great, Something to Note, Needs Attention)
-- [ ] Build quick-capture field for yellow/red taps
+- [x] Build weekly pulse check screen with direct reports
+- [x] Implement three-button rating (Doing Great, Something to Note, Needs Attention)
+- [x] Build quick-capture field for yellow/red taps
 - [ ] Implement pulse check scheduling and reminders
 - [ ] Build pulse check trend visualization
 
@@ -241,10 +241,10 @@
 - [ ] Implement low-data profile warnings
 
 ### Notification System (F13 - Budget)
-- [ ] Build notification budget management (max 3/day)
-- [ ] Implement notification prioritization algorithm
-- [ ] Build notification types (Priority Zero, Insight, Reminder, Milestone, Pulse Check, Achievement Suggestion)
-- [ ] Implement "More" section for overflow notifications
+- [x] Build notification budget management (max 3/day)
+- [x] Implement notification prioritization algorithm
+- [x] Build notification types (Priority Zero, Insight, Reminder, Milestone, Pulse Check, Achievement Suggestion)
+- [x] Implement "More" section for overflow notifications
 - [ ] Build notification preferences UI
 - [ ] Implement browser push notifications
 
