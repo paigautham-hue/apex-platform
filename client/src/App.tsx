@@ -23,6 +23,7 @@ import AskInterface from "./pages/AskInterface";
 import Admin from "./pages/Admin";
 import EvidenceUpload from "./pages/EvidenceUpload";
 import WeeklyPulseCheck from "./pages/WeeklyPulseCheck";
+import ReviewDraftPreview from "./pages/ReviewDraftPreview";
 
 function Router() {
   return (
@@ -110,13 +111,20 @@ function Router() {
           <EvidenceUpload />
         </DashboardLayout>
       </Route>
-      
-      <Route path="/pulse">
-        <DashboardLayout>
-          <WeeklyPulseCheck />
-        </DashboardLayout>
+        <Route path="/pulse">
+        {() => (
+          <DashboardLayout>
+            <WeeklyPulseCheck />
+          </DashboardLayout>
+        )}
       </Route>
-      
+      <Route path="/reviews/draft/:personId">
+        {() => (
+          <DashboardLayout>
+            <ReviewDraftPreview />
+          </DashboardLayout>
+        )}
+      </Route>
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

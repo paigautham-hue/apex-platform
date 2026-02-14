@@ -716,6 +716,46 @@ export const appRouter = router({
   calibration: calibrationRouter,
   constants: constantsRouter,
   
+  // Review router
+  review: router({
+    getDraftByPerson: protectedProcedure
+      .input(z.object({ personId: z.number(), tenantId: z.number() }))
+      .query(async ({ input }) => {
+        // Get latest draft review for person
+        const reviews = await db.getReviewsByPerson(input.personId, input.tenantId);
+        return reviews.find(r => r.status === "DRAFT") || null;
+      }),
+    
+    saveDraft: protectedProcedure
+      .input(z.object({
+        reviewId: z.number(),
+        content: z.record(z.string(), z.string()),
+      }))
+      .mutation(async ({ input }) => {
+        // Update review content
+        const draftContent = JSON.stringify(input.content);
+        await db.updateReview(input.reviewId, {
+          managerEditedVersion: draftContent,
+        });
+        return { success: true };
+      }),
+    
+    finalize: protectedProcedure
+      .input(z.object({
+        reviewId: z.number(),
+        content: z.record(z.string(), z.string()),
+      }))
+      .mutation(async ({ input }) => {
+        // Update review content and mark as final
+        const finalContent = JSON.stringify(input.content);
+        await db.updateReview(input.reviewId, {
+          managerEditedVersion: finalContent,
+          status: "FINAL",
+        });
+        return { success: true };
+      }),
+  }),
+  
   // Evidence Upload router
   evidence: router({
     upload: protectedProcedure

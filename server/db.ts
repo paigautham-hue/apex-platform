@@ -459,6 +459,14 @@ export async function getReviewsByPerson(personId: number, tenantId: number) {
     .orderBy(desc(reviews.createdAt));
 }
 
+export async function updateReview(reviewId: number, updates: Partial<InsertReview>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(reviews)
+    .set(updates)
+    .where(eq(reviews.id, reviewId));
+}
+
 // ============================================================================
 // MEETINGS
 // ============================================================================

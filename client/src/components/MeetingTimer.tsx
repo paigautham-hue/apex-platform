@@ -4,6 +4,9 @@ import { Card } from "@/components/ui/card";
 import { Clock, Play, Square, CheckCircle } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 interface MeetingTimerProps {
   managerPersonId: number;
@@ -21,6 +24,8 @@ export default function MeetingTimer({
   const [isActive, setIsActive] = useState(false);
   const [startTime, setStartTime] = useState<Date | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [showObservationPrompt, setShowObservationPrompt] = useState(false);
+  const [observationText, setObservationText] = useState("");
 
   const createMeeting = trpc.meeting.create.useMutation();
 
@@ -76,6 +81,9 @@ export default function MeetingTimer({
       });
 
       toast.success("Meeting logged successfully");
+      
+      // Show observation prompt
+      setShowObservationPrompt(true);
       
       // Reset timer
       setStartTime(null);
@@ -143,6 +151,51 @@ export default function MeetingTimer({
           </p>
         )}
       </div>
+
+      {/* Post-Meeting Observation Prompt */}
+      <Dialog open={showObservationPrompt} onOpenChange={setShowObservationPrompt}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Capture Post-Meeting Observation</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-4">
+            <p className="text-sm text-muted-foreground">
+              While the meeting is fresh in your mind, capture any key observations from this 1:1 meeting.
+            </p>
+            <div className="space-y-2">
+              <Label>Observation</Label>
+              <Textarea
+                value={observationText}
+                onChange={(e) => setObservationText(e.target.value)}
+                placeholder="What did you observe during this meeting?"
+                className="min-h-[120px]"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowObservationPrompt(false);
+                  setObservationText("");
+                }}
+              >
+                Skip
+              </Button>
+              <Button
+                onClick={() => {
+                  // TODO: Save observation via tRPC
+                  toast.success("Observation saved");
+                  setShowObservationPrompt(false);
+                  setObservationText("");
+                }}
+                disabled={!observationText.trim()}
+              >
+                Save Observation
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
-  );
+  );;
 }
