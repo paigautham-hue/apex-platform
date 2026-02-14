@@ -481,7 +481,7 @@
 ### UI Components
 - [x] Build Floating Action Button (FAB) for mobile quick capture
 - [x] Implement pull-to-refresh on Today Feed and People pages
-- [ ] Build observation timeline view with chronological display
+- [x] Build observation timeline view with chronological display
 - [ ] Add sortable table component with column sorting
 
 ### Living Review Draft
@@ -497,10 +497,10 @@
 - [ ] Implement lazy loading for large lists
 
 ### Meeting & Pulse Features
-- [ ] Build "Start Meeting" button from 1:1 Prep card
-- [ ] Implement meeting session timer with elapsed time
+- [x] Build "Start Meeting" button from 1:1 Prep card
+- [x] Implement meeting session timer with elapsed time
 - [ ] Build post-meeting observation prompt
-- [ ] Add pulse check trend visualization with charts
+- [x] Add pulse check trend visualization with charts
 
 ### Access Control
 - [ ] Build "Report/challenge access" workflow
