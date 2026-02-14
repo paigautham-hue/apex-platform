@@ -572,9 +572,9 @@
 - [x] Add quick-save functionality
 
 ### Remaining Polish Items
-- [ ] Build sortable table component
-- [ ] Implement lazy loading for large lists
-- [ ] Add access challenge workflow
-- [ ] Build cross-company access grants
-- [ ] Add notification preferences UI
-- [ ] Final bug fixes and testing
+- [x] Build sortable table component
+- [x] Implement lazy loading for large lists
+- [x] Add access challenge workflow
+- [x] Build cross-company access grants
+- [x] Add notification preferences UI
+- [x] Final bug fixes and testing

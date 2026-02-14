@@ -24,6 +24,9 @@ import Admin from "./pages/Admin";
 import EvidenceUpload from "./pages/EvidenceUpload";
 import WeeklyPulseCheck from "./pages/WeeklyPulseCheck";
 import ReviewDraftPreview from "./pages/ReviewDraftPreview";
+import NotificationPreferences from "./pages/NotificationPreferences";
+import AccessChallenge from "./pages/AccessChallenge";
+import AccessGrants from "./pages/AccessGrants";
 
 function Router() {
   return (
@@ -124,6 +127,21 @@ function Router() {
             <ReviewDraftPreview />
           </DashboardLayout>
         )}
+      </Route>
+      <Route path="/settings/notifications">
+        <DashboardLayout>
+          <NotificationPreferences />
+        </DashboardLayout>
+      </Route>
+      <Route path="/settings/access-challenge">
+        <DashboardLayout>
+          <AccessChallenge />
+        </DashboardLayout>
+      </Route>
+      <Route path="/settings/access-grants">
+        <DashboardLayout>
+          <AccessGrants />
+        </DashboardLayout>
       </Route>
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
