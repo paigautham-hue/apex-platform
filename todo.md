@@ -578,3 +578,56 @@
 - [x] Build cross-company access grants
 - [x] Add notification preferences UI
 - [x] Final bug fixes and testing
+
+
+## Quality Assurance & Enhancements
+
+### Button Functionality Audit
+- [ ] Test all buttons on Home page
+- [ ] Test all buttons on Today Feed page
+- [ ] Test all buttons on People page
+- [ ] Test all buttons on Person Profile page
+- [ ] Test all buttons on Capture page
+- [ ] Test all buttons on AI Ask page
+- [ ] Test all buttons on Goals page
+- [ ] Test all buttons on Analytics page
+- [ ] Test all buttons on Incentive Simulator page
+- [ ] Test all buttons on Reflections page
+- [ ] Test all buttons on Decisions page
+- [ ] Test all buttons on Meetings page
+- [ ] Test all buttons on Financial page
+- [ ] Test all buttons on Admin page
+- [ ] Test all buttons on Evidence Upload page
+- [ ] Test all buttons on Weekly Pulse Check page
+- [ ] Test all buttons on Review Draft Preview page
+- [ ] Test all buttons on Notification Preferences page
+- [ ] Test all buttons on Access Challenge page
+- [ ] Test all buttons on Access Grants page
+
+### Voice Input Integration
+- [ ] Add voice input to Capture observation form
+- [ ] Add voice input to AI Ask query field
+- [ ] Add voice input to Meeting notes
+- [ ] Add voice input to Self-reflection entries
+- [ ] Add voice input to Decision journal
+- [ ] Add voice input to Weekly pulse check notes
+- [ ] Add voice input to Review draft editing
+- [ ] Add voice input to Observation timeline comments
+
+### Document Upload Integration
+- [ ] Add document upload to Evidence page
+- [ ] Add document upload to Observation capture
+- [ ] Add document upload to Meeting prep
+- [ ] Add document upload to Financial data upload
+- [ ] Add document upload to Self-reflection entries
+- [ ] Add document upload to Decision journal
+- [ ] Add document upload to Review supporting documents
+- [ ] Add document upload to Admin configuration
+
+### Bug Fixes
+- [ ] Fix all non-functional buttons
+- [ ] Fix all broken navigation links
+- [ ] Fix all form submission issues
+- [ ] Fix all data loading errors
+- [ ] Test all tRPC procedures
+- [ ] Verify all database operations

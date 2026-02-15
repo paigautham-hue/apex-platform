@@ -5,8 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Mic, Send, Sparkles } from "lucide-react";
+import { Mic, Send, Sparkles, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { VoiceInput } from "@/components/VoiceInput";
+import { DocumentUpload } from "@/components/DocumentUpload";
 
 export default function Capture() {
   const [selectedPerson, setSelectedPerson] = useState<number | null>(null);
@@ -66,12 +68,29 @@ export default function Capture() {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Observation</Label>
+            <Label className="flex items-center justify-between">
+              <span>Observation</span>
+              <VoiceInput 
+                onTranscript={(text) => setObservationText(prev => prev + " " + text)}
+                buttonSize="sm"
+              />
+            </Label>
             <Textarea
               value={observationText}
               onChange={(e) => setObservationText(e.target.value)}
-              placeholder="Describe what you observed..."
+              placeholder="Describe what you observed... (or use voice input)"
               rows={6}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Supporting Documents (Optional)</Label>
+            <DocumentUpload
+              onUploadComplete={(url, fileName) => {
+                toast.success(`Document ${fileName} attached`);
+                setObservationText(prev => prev + `\n\n[Attached: ${fileName}](${url})`);
+              }}
+              buttonText="Attach Document"
+              maxSizeMB={5}
             />
           </div>
           <Button onClick={handleSubmit} disabled={createObservation.isPending} className="w-full">

@@ -6,10 +6,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Brain, Send, Mic, Sparkles, TrendingUp, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
+import { VoiceInput } from "@/components/VoiceInput";
 
 export default function AskInterface() {
   const [question, setQuestion] = useState("");
-  const [isListening, setIsListening] = useState(false);
   
   const { data: suggestions } = trpc.ask.getSuggestions.useQuery({ tenantId: 1 });
   const askQuery = trpc.ask.query.useMutation();
@@ -30,41 +30,7 @@ export default function AskInterface() {
     }
   };
 
-  const handleVoiceInput = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      toast.error("Voice recognition not supported");
-      return;
-    }
 
-    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
-    const recognition = new SpeechRecognition();
-
-    recognition.continuous = false;
-    recognition.interimResults = false;
-    recognition.lang = 'en-US';
-
-    recognition.onstart = () => {
-      setIsListening(true);
-      toast.info("Listening...");
-    };
-
-    recognition.onresult = (event: any) => {
-      const transcript = event.results[0][0].transcript;
-      setQuestion(transcript);
-      toast.success("Voice captured!");
-    };
-
-    recognition.onerror = () => {
-      setIsListening(false);
-      toast.error("Voice recognition error");
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
-    recognition.start();
-  };
 
   return (
     <div className="max-w-5xl mx-auto space-y-6">
@@ -86,16 +52,11 @@ export default function AskInterface() {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-sm font-medium">Your Question</label>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleVoiceInput}
-                disabled={isListening}
-                className="gap-2"
-              >
-                <Mic className={`h-4 w-4 ${isListening ? "animate-pulse text-red-500" : ""}`} />
-                {isListening ? "Listening..." : "Voice Input"}
-              </Button>
+              <VoiceInput
+                onTranscript={(text) => setQuestion(text)}
+                buttonVariant="outline"
+                buttonSize="sm"
+              />
             </div>
             <Textarea
               value={question}

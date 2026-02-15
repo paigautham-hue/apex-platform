@@ -7,12 +7,13 @@ import { Input } from "@/components/ui/input";
 import { Calendar, Users, MessageSquare, CheckCircle, Clock, Lightbulb, Mic } from "lucide-react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { VoiceInput } from "@/components/VoiceInput";
+import { DocumentUpload } from "@/components/DocumentUpload";
 
 export default function Meetings() {
   const [selectedPerson, setSelectedPerson] = useState<number | null>(null);
   const [meetingNotes, setMeetingNotes] = useState("");
   const [actionItems, setActionItems] = useState("");
-  const [isRecording, setIsRecording] = useState(false);
   const [prepMode, setPrepMode] = useState(true);
 
   const { data: people } = trpc.person.list.useQuery({ tenantId: 1 });
@@ -34,56 +35,7 @@ export default function Meetings() {
     { enabled: !!selectedPerson }
   );
 
-  const handleVoiceCapture = () => {
-    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-      toast.error("Voice recognition not supported in this browser");
-      return;
-    }
 
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    const recognition = new SpeechRecognition();
-    
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    recognition.onstart = () => {
-      setIsRecording(true);
-      toast.info("Listening...");
-    };
-
-    recognition.onresult = (event: any) => {
-      let interimTranscript = '';
-      let finalTranscript = '';
-
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-          finalTranscript += transcript + ' ';
-        } else {
-          interimTranscript += transcript;
-        }
-      }
-
-      if (finalTranscript) {
-        setMeetingNotes(prev => prev + finalTranscript);
-      }
-    };
-
-    recognition.onerror = (event: any) => {
-      toast.error("Voice recognition error: " + event.error);
-      setIsRecording(false);
-    };
-
-    recognition.onend = () => {
-      setIsRecording(false);
-    };
-
-    if (isRecording) {
-      recognition.stop();
-    } else {
-      recognition.start();
-    }
-  };
 
   const handleLogMeeting = async () => {
     if (!selectedPerson) {
@@ -236,14 +188,11 @@ export default function Meetings() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 Meeting Notes
-                <Button
-                  variant={isRecording ? "destructive" : "outline"}
-                  size="sm"
-                  onClick={handleVoiceCapture}
-                >
-                  <Mic className={`h-4 w-4 mr-2 ${isRecording ? 'animate-pulse' : ''}`} />
-                  {isRecording ? "Stop Recording" : "Voice Capture"}
-                </Button>
+                <VoiceInput
+                  onTranscript={(text) => setMeetingNotes(prev => prev + " " + text)}
+                  buttonVariant="outline"
+                  buttonSize="sm"
+                />
               </CardTitle>
             </CardHeader>
             <CardContent>
