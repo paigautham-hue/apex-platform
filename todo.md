@@ -641,8 +641,8 @@
 - [x] Meetings page - Voice input + Document upload
 - [x] Reflections page - Voice input + Document upload
 - [x] Decisions page - Voice input + Document upload
-- [ ] Financial page - Document upload
-- [ ] Goals page - Voice input + Document upload
+- [x] Financial page - Document upload
+- [x] Goals page - Voice input + Document upload
 
 ### Phase 2: Secondary Pages
 - [ ] People page - Voice input for search/notes

@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Upload, FileSpreadsheet, CheckCircle, ArrowRight, ArrowLeft, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { DocumentUpload } from "@/components/DocumentUpload";
 
 type WizardStep = "upload" | "review" | "confirm" | "complete";
 
@@ -142,29 +143,43 @@ export default function Financial() {
             <CardTitle>Upload Financial Data</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="border-2 border-dashed rounded-lg p-12 text-center">
-              <FileSpreadsheet className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-semibold mb-2">
-                Drop your financial file here
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                Supports Excel (.xlsx, .xls) files up to 16MB
-              </p>
-              <input
-                type="file"
-                id="financial-upload"
-                className="hidden"
-                onChange={handleFileSelect}
-                accept=".xlsx,.xls"
-              />
-              <Button
-                onClick={() => document.getElementById('financial-upload')?.click()}
-                disabled={uploadMutation.isPending}
-              >
-                <Upload className="h-4 w-4 mr-2" />
-                {uploadMutation.isPending ? "Processing..." : "Select File"}
-              </Button>
-            </div>
+            <DocumentUpload
+              onUploadComplete={async (fileUrl: string, fileName: string, fileType: string) => {
+                // File has been uploaded to S3, now extract with AI
+                try {
+                  toast.info("Processing file with AI...");
+                  
+                  // Fetch the file from S3 and convert to base64
+                  const response = await fetch(fileUrl);
+                  const blob = await response.blob();
+                  const reader = new FileReader();
+                  
+                  reader.onload = async (e) => {
+                    const base64 = e.target?.result as string;
+                    const base64Data = base64.split(',')[1];
+
+                    const result = await uploadMutation.mutateAsync({
+                      fileData: base64Data,
+                      fileName: fileName,
+                      mimeType: fileType,
+                      tenantId: 1,
+                    });
+
+                    setExtractedData(result.extraction);
+                    setCurrentStep("review");
+                    toast.success("File processed successfully!");
+                  };
+                  
+                  reader.readAsDataURL(blob);
+                } catch (error) {
+                  toast.error("Failed to process file");
+                  console.error(error);
+                }
+              }}
+              acceptedTypes=".xlsx,.xls,.csv"
+              maxSizeMB={16}
+              buttonText="Upload Financial Data"
+            />
           </CardContent>
         </Card>
       )}
