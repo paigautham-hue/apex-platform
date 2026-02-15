@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CheckCircle2, AlertCircle, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { VoiceInput } from "@/components/VoiceInput";
 
 type PulseRating = "DOING_GREAT" | "SOMETHING_TO_NOTE" | "NEEDS_ATTENTION";
 
@@ -125,12 +126,19 @@ export default function WeeklyPulseCheck() {
                     <label className="text-sm font-medium mb-2 block">
                       Quick note (optional, but helpful):
                     </label>
-                    <Textarea
-                      placeholder="What's happening? What support do they need?"
-                      value={notes[person.id] || ""}
-                      onChange={(e) => setNotes({ ...notes, [person.id]: e.target.value })}
-                      rows={2}
-                    />
+                    <div className="flex gap-2">
+                      <Textarea
+                        placeholder="What's happening? What support do they need?"
+                        value={notes[person.id] || ""}
+                        onChange={(e) => setNotes({ ...notes, [person.id]: e.target.value })}
+                        rows={2}
+                        className="flex-1"
+                      />
+                      <VoiceInput
+                        onTranscript={(text) => setNotes({ ...notes, [person.id]: (notes[person.id] || "") + " " + text })}
+                        buttonVariant="outline"
+                      />
+                    </div>
                   </div>
                 )}
               </div>

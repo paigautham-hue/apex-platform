@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Edit2, Save, Send, Sparkles } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Streamdown } from "streamdown";
+import { VoiceInput } from "@/components/VoiceInput";
 
 export default function ReviewDraftPreview() {
   const [, params] = useRoute("/reviews/draft/:personId");
@@ -194,17 +195,30 @@ export default function ReviewDraftPreview() {
             </div>
             <Separator className="mb-4" />
             {isEditing ? (
-              <Textarea
-                value={editedContent[section.key] || section.content}
-                onChange={(e) =>
-                  setEditedContent({
-                    ...editedContent,
-                    [section.key]: e.target.value,
-                  })
-                }
-                className="min-h-[200px] font-sans"
-                placeholder={`Edit ${section.title.toLowerCase()}...`}
-              />
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <Textarea
+                    value={editedContent[section.key] || section.content}
+                    onChange={(e) =>
+                      setEditedContent({
+                        ...editedContent,
+                        [section.key]: e.target.value,
+                      })
+                    }
+                    className="min-h-[200px] font-sans flex-1"
+                    placeholder={`Edit ${section.title.toLowerCase()}...`}
+                  />
+                  <VoiceInput
+                    onTranscript={(text) =>
+                      setEditedContent({
+                        ...editedContent,
+                        [section.key]: (editedContent[section.key] || section.content) + " " + text,
+                      })
+                    }
+                    buttonVariant="outline"
+                  />
+                </div>
+              </div>
             ) : (
               <div className="prose prose-sm max-w-none">
                 <Streamdown>{section.content}</Streamdown>

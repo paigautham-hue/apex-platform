@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { useState } from "react";
 import { Link } from "wouter";
 import { Search } from "lucide-react";
+import { VoiceInput } from "@/components/VoiceInput";
 
 export default function People() {
   const [search, setSearch] = useState("");
@@ -20,13 +21,19 @@ export default function People() {
         <p className="text-muted-foreground">View and manage your team</p>
       </div>
       
-      <div className="relative">
-        <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search people..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
+      <div className="flex gap-2">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search people..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <VoiceInput
+          onTranscript={(text) => setSearch(text)}
+          buttonVariant="outline"
         />
       </div>
 

@@ -645,17 +645,17 @@
 - [x] Goals page - Voice input + Document upload
 
 ### Phase 2: Secondary Pages
-- [ ] People page - Voice input for search/notes
-- [ ] TodayFeed page - Voice input for quick actions
-- [ ] PersonProfile page - Voice input for notes/comments
-- [ ] Reviews page - Voice input + Document upload
-- [ ] EvidenceUpload page - Verify functionality
+- [x] People page - Voice input for search
+- [x] TodayFeed page - No text input fields (dashboard only)
+- [x] PersonProfile page - No text input fields (view only)
+- [x] Reviews page - Voice input for editing review sections
+- [x] EvidenceUpload page - Already has document upload functionality
 
 ### Phase 3: Remaining Pages
-- [ ] Admin page - Voice input for configuration
-- [ ] WeeklyPulseCheck page - Voice input for notes
-- [ ] AccessChallenge page - Voice input for challenge description
-- [ ] AccessGrants page - Voice input for justification
+- [x] Admin page - No free-form text fields (structured inputs only)
+- [x] WeeklyPulseCheck page - Voice input for notes
+- [x] AccessChallenge page - Voice input for challenge description
+- [x] AccessGrants page - No free-form text fields (structured inputs only)
 
 ## Button Audit & Fixes
 

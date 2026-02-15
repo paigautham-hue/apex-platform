@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { AlertTriangle, Shield } from "lucide-react";
+import { VoiceInput } from "@/components/VoiceInput";
 
 export default function AccessChallenge() {
   const [challengeType, setChallengeType] = useState<string>("");
@@ -86,18 +87,24 @@ export default function AccessChallenge() {
 
           <div className="space-y-2">
             <Label htmlFor="description">Description</Label>
-            <Textarea
-              id="description"
-              placeholder="Provide detailed information about the access issue, including:
+            <div className="flex gap-2">
+              <Textarea
+                id="description"
+                placeholder="Provide detailed information about the access issue, including:
 - What data or profile is involved
 - Who has inappropriate access (if known)
 - Why you believe this access is incorrect
 - Any supporting evidence or context"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={8}
-              className="resize-none"
-            />
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={8}
+                className="resize-none flex-1"
+              />
+              <VoiceInput
+                onTranscript={(text) => setDescription(prev => prev ? `${prev} ${text}` : text)}
+                buttonVariant="outline"
+              />
+            </div>
           </div>
 
           <div className="bg-muted p-4 rounded-lg space-y-2">
