@@ -2,8 +2,10 @@ import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { User, TrendingUp, MessageSquare } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function PersonProfile({ personId }: { personId: number }) {
+  const [, setLocation] = useLocation();
   const { data: person, isLoading } = trpc.person.getById.useQuery({ personId });
   const { data: observations } = trpc.observation.getByPerson.useQuery({ personId, tenantId: 1 });
 
@@ -22,7 +24,7 @@ export default function PersonProfile({ personId }: { personId: number }) {
             <p className="text-muted-foreground">{person.currentRole?.title}</p>
           </div>
         </div>
-        <Button>Schedule 1:1</Button>
+        <Button onClick={() => setLocation('/meetings')}>Schedule 1:1</Button>
       </div>
 
       <div className="grid md:grid-cols-3 gap-4">
