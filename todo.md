@@ -631,3 +631,42 @@
 - [ ] Fix all data loading errors
 - [ ] Test all tRPC procedures
 - [ ] Verify all database operations
+
+
+## Voice Input & Document Upload - Systematic Enhancement
+
+### Phase 1: Core Pages
+- [x] Capture page - Voice input + Document upload
+- [x] AI Ask page - Voice input
+- [x] Meetings page - Voice input + Document upload
+- [x] Reflections page - Voice input + Document upload
+- [x] Decisions page - Voice input + Document upload
+- [ ] Financial page - Document upload
+- [ ] Goals page - Voice input + Document upload
+
+### Phase 2: Secondary Pages
+- [ ] People page - Voice input for search/notes
+- [ ] TodayFeed page - Voice input for quick actions
+- [ ] PersonProfile page - Voice input for notes/comments
+- [ ] Reviews page - Voice input + Document upload
+- [ ] EvidenceUpload page - Verify functionality
+
+### Phase 3: Remaining Pages
+- [ ] Admin page - Voice input for configuration
+- [ ] WeeklyPulseCheck page - Voice input for notes
+- [ ] AccessChallenge page - Voice input for challenge description
+- [ ] AccessGrants page - Voice input for justification
+
+## Button Audit & Fixes
+
+### Audit Tasks
+- [ ] Create comprehensive button audit script
+- [ ] Test all buttons on each page
+- [ ] Document all broken buttons
+
+### Fix Tasks
+- [ ] Fix broken onClick handlers
+- [ ] Fix missing tRPC mutations
+- [ ] Fix incomplete form submissions
+- [ ] Fix navigation buttons
+- [ ] Test all fixes
