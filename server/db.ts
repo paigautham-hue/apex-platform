@@ -238,6 +238,13 @@ export async function getRoleById(id: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getRolesByTenant(tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(roles)
+    .where(and(eq(roles.tenantId, tenantId), eq(roles.isActive, true)));
+}
+
 export async function getActiveRoleByPerson(personId: number) {
   const db = await getDb();
   if (!db) return undefined;

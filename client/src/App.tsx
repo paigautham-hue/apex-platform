@@ -29,6 +29,7 @@ import AccessChallenge from "./pages/AccessChallenge";
 import AccessGrants from "./pages/AccessGrants";
 import MyBridge from "./pages/MyBridge";
 import MyIsland from "./pages/MyIsland";
+import ChairmanDashboard from "./pages/ChairmanDashboard";
 
 function Router() {
   return (
@@ -52,6 +53,12 @@ function Router() {
       <Route path="/my-island">
         <DashboardLayout>
           <MyIsland />
+        </DashboardLayout>
+      </Route>
+
+      <Route path="/chairman">
+        <DashboardLayout>
+          <ChairmanDashboard />
         </DashboardLayout>
       </Route>
       

@@ -973,6 +973,19 @@ const governanceRouter = router({
       return await db.getDependencyChainsByTenant(input.tenantId);
     }),
 
+  // --- Roles (helper for chairman dashboard) ---
+  listRoles: protectedProcedure
+    .input(z.object({ tenantId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getRolesByTenant(input.tenantId);
+    }),
+
+  listAssessments: protectedProcedure
+    .input(z.object({ tenantId: z.number(), cycleId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getAssessmentsByCycle(input.cycleId, input.tenantId);
+    }),
+
   // --- AI insights ---
   listInsights: protectedProcedure
     .input(z.object({ tenantId: z.number(), cycleId: z.number() }))
