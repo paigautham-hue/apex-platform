@@ -1,8 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 
-/* Import Inter for body text and JetBrains Mono for financial numbers */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+/* Import Inter (body), JetBrains Mono (numbers), Playfair Display (headlines for oceanic theme) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Playfair+Display:wght@500;600;700;800&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
@@ -89,38 +89,55 @@
 }
 
 .dark {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-500);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.85 0.005 65);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.85 0.005 65);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.85 0.005 65);
-  --secondary: oklch(0.24 0.006 286.033);
-  --secondary-foreground: oklch(0.7 0.005 65);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground:  oklch(0.92 0.005 65);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.488 0.243 264.376);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.85 0.005 65);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground:  oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.488 0.243 264.376);
+  /* Dark Oceanic palette — Evergreen Fund theme */
+  --ocean-deep: #060B14;
+  --ocean-surface: #0A1628;
+  --ocean-card: #0F1D32;
+  --glass-border: rgba(255, 255, 255, 0.08);
+
+  /* Accent tokens */
+  --teal: #00D4AA;
+  --gold: #FFB800;
+  --hull: #FF4757;   /* critical */
+  --deck: #FFA502;   /* operational */
+  --mast: #2ED573;   /* strategic */
+  --purple: #A78BFA; /* people */
+
+  --background: var(--ocean-deep);
+  --foreground: oklch(0.92 0.01 220);
+  --card: var(--ocean-card);
+  --card-foreground: oklch(0.92 0.01 220);
+  --popover: var(--ocean-card);
+  --popover-foreground: oklch(0.92 0.01 220);
+
+  --primary: var(--teal);
+  --primary-foreground: var(--ocean-deep);
+  --secondary: var(--ocean-surface);
+  --secondary-foreground: oklch(0.88 0.01 220);
+  --muted: var(--ocean-surface);
+  --muted-foreground: oklch(0.65 0.015 220);
+  --accent: var(--teal);
+  --accent-foreground: var(--ocean-deep);
+  --destructive: var(--hull);
+  --destructive-foreground: #ffffff;
+  --border: var(--glass-border);
+  --input: rgba(255, 255, 255, 0.10);
+  --ring: var(--teal);
+
+  --chart-1: var(--teal);
+  --chart-2: var(--gold);
+  --chart-3: var(--mast);
+  --chart-4: var(--deck);
+  --chart-5: var(--hull);
+
+  --sidebar: var(--ocean-surface);
+  --sidebar-foreground: oklch(0.88 0.01 220);
+  --sidebar-primary: var(--teal);
+  --sidebar-primary-foreground: var(--ocean-deep);
+  --sidebar-accent: var(--ocean-card);
+  --sidebar-accent-foreground: oklch(0.92 0.01 220);
+  --sidebar-border: var(--glass-border);
+  --sidebar-ring: var(--teal);
 }
 
 @layer base {
@@ -328,4 +345,55 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* ============================================================================
+   DARK OCEANIC THEME — Evergreen Fund
+   ============================================================================ */
+
+/* Headline font for dark oceanic theme — Playfair Display for Hull/Deck/Mast
+   titles and page headers. Body text stays Inter. */
+.dark h1,
+.dark h2,
+.dark .oceanic-headline {
+  font-family: 'Playfair Display', Georgia, serif;
+  letter-spacing: -0.01em;
+}
+
+/* Glassmorphic card — semi-transparent surface with backdrop blur.
+   Use as a wrapper className: <Card className="glass">…</Card>  */
+.dark .glass,
+.glass.dark {
+  background: rgba(15, 29, 50, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--glass-border);
+}
+
+/* Seascape — radial gradient backdrop the main app can apply to <body> or
+   the top-level dashboard wrapper for a subtle "ocean at night" feel. */
+.dark body,
+body.dark {
+  background:
+    radial-gradient(ellipse at top, #0F2744 0%, #060B14 60%),
+    var(--ocean-deep);
+}
+
+/* Ship zone color utilities */
+.dark .zone-hull { color: var(--hull); }
+.dark .zone-deck { color: var(--deck); }
+.dark .zone-mast { color: var(--mast); }
+.dark .bg-zone-hull { background-color: color-mix(in oklab, var(--hull) 15%, transparent); }
+.dark .bg-zone-deck { background-color: color-mix(in oklab, var(--deck) 15%, transparent); }
+.dark .bg-zone-mast { background-color: color-mix(in oklab, var(--mast) 15%, transparent); }
+.dark .border-zone-hull { border-color: color-mix(in oklab, var(--hull) 40%, transparent); }
+.dark .border-zone-deck { border-color: color-mix(in oklab, var(--deck) 40%, transparent); }
+.dark .border-zone-mast { border-color: color-mix(in oklab, var(--mast) 40%, transparent); }
+
+/* KPI number accent — gold treatment for signature metrics */
+.dark .kpi-gold {
+  color: var(--gold);
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
