@@ -1253,6 +1253,33 @@ const governanceRouter = router({
       return await db.getFinancialSummariesByTenant(input.tenantId);
     }),
 
+  canEditCompanyFinancials: protectedProcedure
+    .input(z.object({ tenantId: z.number(), orgUnitId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      return await db.canEditCompanyFinancials(ctx.user.id, input.tenantId, input.orgUnitId);
+    }),
+
+  writeQuarterlyActual: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      orgUnitId: z.number(),
+      metricName: z.string(),
+      periodDate: z.date(),
+      actualValue: z.number(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const ok = await db.canEditCompanyFinancials(ctx.user.id, input.tenantId, input.orgUnitId);
+      if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: "Only the CEO of this company (or Chairman/Admin) can edit actuals." });
+      await db.upsertQuarterlyActual({
+        tenantId: input.tenantId,
+        orgUnitId: input.orgUnitId,
+        metricName: input.metricName,
+        periodDate: input.periodDate,
+        actualValue: input.actualValue,
+      });
+      return { success: true };
+    }),
+
   // --- Roles (helper for chairman dashboard) ---
   listRoles: protectedProcedure
     .input(z.object({ tenantId: z.number() }))

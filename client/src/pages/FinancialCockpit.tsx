@@ -9,8 +9,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { DollarSign } from "lucide-react";
-import { useMemo } from "react";
+import { DollarSign, Lock } from "lucide-react";
+import { useMemo, useState } from "react";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 const TENANT_ID = 1;
 
@@ -61,11 +63,40 @@ function varianceBadge(pct: number | null) {
   return "bg-red-500/15 text-red-700 border-red-500/30";
 }
 
+// FY27 runs Apr 2026 -> Mar 2027. Quarter-end ISO dates used as the
+// canonical periodDate for each quarterly metricValue row.
+const FY27_QUARTER_ENDS = [
+  new Date("2026-06-30"),
+  new Date("2026-09-30"),
+  new Date("2026-12-31"),
+  new Date("2027-03-31"),
+];
+
 export default function FinancialCockpit() {
   const { data: orgUnits } = trpc.tenant.listOrgUnits.useQuery({ tenantId: TENANT_ID });
-  const { data: summaries } = trpc.governance.listFinancialSummaries.useQuery({
+  const { data: summaries, refetch: refetchSummaries } = trpc.governance.listFinancialSummaries.useQuery({
     tenantId: TENANT_ID,
   });
+  const { data: profile } = trpc.person.getMyProfile.useQuery();
+  const { data: amIChairman } = trpc.governance.amIChairman.useQuery({ tenantId: TENANT_ID });
+
+  const writeQuarterlyActual = trpc.governance.writeQuarterlyActual.useMutation({
+    onSuccess: () => {
+      toast.success("Actual saved");
+      refetchSummaries();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const myCompanyId = profile?.currentRole?.orgUnitId ?? 0;
+  const canEdit = (orgUnitId: number) => amIChairman === true || myCompanyId === orgUnitId;
+
+  const [draftCell, setDraftCell] = useState<{
+    orgUnitId: number;
+    metricName: string;
+    qIndex: number;
+    value: string;
+  } | null>(null);
 
   const companies = useMemo(
     () => (orgUnits ?? []).filter((u) => u.type === "PORTFOLIO_COMPANY"),
@@ -215,9 +246,79 @@ export default function FinancialCockpit() {
                 <TableBody>
                   {companies.map((company) => {
                     const m = companyMetrics(company.id);
+                    const editable = canEdit(company.id);
+                    const renderQuarter = (qIndex: number) => {
+                      const value = m.revQuarters[qIndex];
+                      const isDraft =
+                        draftCell &&
+                        draftCell.orgUnitId === company.id &&
+                        draftCell.qIndex === qIndex &&
+                        draftCell.metricName === "Revenue FY27";
+                      if (!editable) {
+                        return (
+                          <TableCell key={qIndex} className="text-right text-muted-foreground">
+                            {fmtCr(value)}
+                          </TableCell>
+                        );
+                      }
+                      if (isDraft) {
+                        return (
+                          <TableCell key={qIndex} className="text-right">
+                            <Input
+                              autoFocus
+                              className="h-8 w-20 text-right"
+                              type="number"
+                              value={draftCell!.value}
+                              onChange={(e) =>
+                                setDraftCell({ ...draftCell!, value: e.target.value })
+                              }
+                              onBlur={() => {
+                                const parsed = parseFloat(draftCell!.value);
+                                if (Number.isFinite(parsed)) {
+                                  writeQuarterlyActual.mutate({
+                                    tenantId: TENANT_ID,
+                                    orgUnitId: company.id,
+                                    metricName: "Revenue FY27",
+                                    periodDate: FY27_QUARTER_ENDS[qIndex],
+                                    actualValue: parsed,
+                                  });
+                                }
+                                setDraftCell(null);
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+                                if (e.key === "Escape") setDraftCell(null);
+                              }}
+                            />
+                          </TableCell>
+                        );
+                      }
+                      return (
+                        <TableCell
+                          key={qIndex}
+                          className="text-right cursor-pointer hover:bg-muted/40"
+                          onClick={() =>
+                            setDraftCell({
+                              orgUnitId: company.id,
+                              metricName: "Revenue FY27",
+                              qIndex,
+                              value: value == null ? "" : String(value),
+                            })
+                          }
+                          title="Click to edit"
+                        >
+                          {fmtCr(value)}
+                        </TableCell>
+                      );
+                    };
                     return (
                       <TableRow key={company.id}>
-                        <TableCell className="font-medium">{company.name}</TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            {company.name}
+                            {!editable && <Lock className="h-3 w-3 text-muted-foreground" />}
+                          </div>
+                        </TableCell>
                         <TableCell className="text-right">{fmtCr(m.revLastYear)}</TableCell>
                         <TableCell className="text-right font-semibold">{fmtCr(m.revBudget)}</TableCell>
                         <TableCell className={`text-right ${varianceColor(m.yoy)}`}>
@@ -226,18 +327,10 @@ export default function FinancialCockpit() {
                         <TableCell className="text-right">{fmtCr(m.ebitdaBudget)}</TableCell>
                         <TableCell className="text-right">{fmtPct(m.ebitdaPct)}</TableCell>
                         <TableCell className="text-right">{fmtCr(m.pbtBudget)}</TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {fmtCr(m.revQuarters[0])}
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {fmtCr(m.revQuarters[1])}
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {fmtCr(m.revQuarters[2])}
-                        </TableCell>
-                        <TableCell className="text-right text-muted-foreground">
-                          {fmtCr(m.revQuarters[3])}
-                        </TableCell>
+                        {renderQuarter(0)}
+                        {renderQuarter(1)}
+                        {renderQuarter(2)}
+                        {renderQuarter(3)}
                         <TableCell className="text-right">{fmtCr(m.revYtd)}</TableCell>
                         <TableCell className="text-right">
                           {m.revVariance == null ? (
@@ -288,9 +381,8 @@ export default function FinancialCockpit() {
       </Card>
 
       <div className="text-xs text-muted-foreground">
-        Color bands: green ≤5% variance, amber 5–20%, red &gt;20%. Actuals entry UI (CEO-only,
-        per-company) arrives in the next iteration — for now actuals flow in via the financial
-        upload pipeline and direct metricValues writes.
+        Color bands: green ≤5% variance, amber 5–20%, red &gt;20%. Click a Q1-Q4 revenue cell to edit
+        the actual; only a company's own CEO (or Chairman / Admin) can save.
       </div>
     </div>
   );

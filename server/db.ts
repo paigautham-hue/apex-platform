@@ -1160,6 +1160,88 @@ export async function getAiInsightsByCycle(cycleId: number, tenantId: number) {
     .orderBy(desc(aiInsights.severity), desc(aiInsights.createdAt));
 }
 
+// Resolve whether a given user is the CEO for a specific company (their
+// currentRole.orgUnitId matches) OR is chairman/admin. Used to gate
+// editable actuals in /financial-cockpit.
+export async function canEditCompanyFinancials(
+  userId: number,
+  tenantId: number,
+  orgUnitId: number,
+): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  if (await isChairmanOrAdmin(userId, tenantId)) return true;
+  const person = await db
+    .select()
+    .from(persons)
+    .where(and(eq(persons.tenantId, tenantId), eq(persons.userId, userId)))
+    .limit(1);
+  if (person.length === 0 || !person[0].currentRoleId) return false;
+  const role = await db.select().from(roles).where(eq(roles.id, person[0].currentRoleId)).limit(1);
+  if (role.length === 0) return false;
+  return role[0].roleType === "CEO" && role[0].orgUnitId === orgUnitId;
+}
+
+// Upsert a quarterly metricValue for a given company + metric name.
+// Matches on (metricId, periodType='QUARTERLY', periodDate). If the row
+// exists, updates actualValue; otherwise inserts.
+export async function upsertQuarterlyActual(args: {
+  tenantId: number;
+  orgUnitId: number;
+  metricName: string;
+  periodDate: Date;
+  actualValue: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const planRows = await db
+    .select()
+    .from(plans)
+    .where(
+      and(
+        eq(plans.tenantId, args.tenantId),
+        eq(plans.orgUnitId, args.orgUnitId),
+        eq(plans.category, "FINANCIAL"),
+      ),
+    )
+    .limit(1);
+  if (planRows.length === 0) throw new Error("No FINANCIAL plan exists for this company.");
+  const planId = planRows[0].id;
+
+  const metricRows = await db
+    .select()
+    .from(metrics)
+    .where(and(eq(metrics.planId, planId), eq(metrics.name, args.metricName)))
+    .limit(1);
+  if (metricRows.length === 0) throw new Error(`Metric '${args.metricName}' not configured.`);
+  const metricId = metricRows[0].id;
+
+  const existing = await db
+    .select()
+    .from(metricValues)
+    .where(
+      and(
+        eq(metricValues.metricId, metricId),
+        eq(metricValues.periodType, "QUARTERLY"),
+        eq(metricValues.periodDate, args.periodDate),
+      ),
+    )
+    .limit(1);
+
+  if (existing.length > 0) {
+    return await db
+      .update(metricValues)
+      .set({ actualValue: String(args.actualValue) })
+      .where(eq(metricValues.id, existing[0].id));
+  }
+  return await db.insert(metricValues).values({
+    metricId,
+    periodDate: args.periodDate,
+    periodType: "QUARTERLY",
+    actualValue: String(args.actualValue),
+  });
+}
+
 // ============================================================================
 // FINANCIAL COCKPIT SUMMARY
 // ============================================================================
