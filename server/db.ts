@@ -23,7 +23,16 @@ import {
   notifications, InsertNotification,
   financialUploads, InsertFinancialUpload,
   financialTemplates, InsertFinancialTemplate,
-  auditLogs, InsertAuditLog
+  auditLogs, InsertAuditLog,
+  feedbackTypes, InsertFeedbackType,
+  governanceCycles, InsertGovernanceCycle,
+  governanceAssessments, InsertGovernanceAssessment,
+  assessmentAssignments, InsertAssessmentAssignment,
+  mandateJournals, InsertMandateJournal,
+  companyReflections, InsertCompanyReflection,
+  chairmanGuidance, InsertChairmanGuidance,
+  dependencyChains, InsertDependencyChain,
+  aiInsights, InsertAiInsight
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -679,4 +688,424 @@ export async function getAuditLogsByEntity(entityType: string, entityId: number,
       eq(auditLogs.entityId, entityId)
     ))
     .orderBy(desc(auditLogs.createdAt));
+}
+
+// ============================================================================
+// FEEDBACK TYPES
+// ============================================================================
+
+export async function getFeedbackTypesByTenant(tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(feedbackTypes)
+    .where(and(
+      eq(feedbackTypes.tenantId, tenantId),
+      eq(feedbackTypes.isActive, true)
+    ))
+    .orderBy(asc(feedbackTypes.sortOrder));
+}
+
+export async function getFeedbackTypeByKey(key: string, tenantId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(feedbackTypes)
+    .where(and(
+      eq(feedbackTypes.tenantId, tenantId),
+      eq(feedbackTypes.key, key)
+    ))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function createFeedbackType(type: InsertFeedbackType) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(feedbackTypes).values(type);
+}
+
+// ============================================================================
+// GOVERNANCE CYCLES
+// ============================================================================
+
+export async function createGovernanceCycle(cycle: InsertGovernanceCycle) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(governanceCycles).values(cycle);
+}
+
+export async function getGovernanceCyclesByTenant(tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(governanceCycles)
+    .where(eq(governanceCycles.tenantId, tenantId))
+    .orderBy(desc(governanceCycles.month));
+}
+
+export async function getActiveGovernanceCycle(tenantId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(governanceCycles)
+    .where(and(
+      eq(governanceCycles.tenantId, tenantId),
+      eq(governanceCycles.status, "OPEN")
+    ))
+    .orderBy(desc(governanceCycles.month))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getGovernanceCycleByMonth(month: string, tenantId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(governanceCycles)
+    .where(and(
+      eq(governanceCycles.tenantId, tenantId),
+      eq(governanceCycles.month, month)
+    ))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function updateGovernanceCycleStatus(
+  cycleId: number,
+  status: "DRAFT" | "OPEN" | "CLOSED" | "REVEALED",
+  tenantId: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.update(governanceCycles)
+    .set({ status })
+    .where(and(
+      eq(governanceCycles.id, cycleId),
+      eq(governanceCycles.tenantId, tenantId)
+    ));
+}
+
+// ============================================================================
+// GOVERNANCE ASSESSMENTS
+// ============================================================================
+
+export async function upsertGovernanceAssessment(a: InsertGovernanceAssessment) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await db.select().from(governanceAssessments)
+    .where(and(
+      eq(governanceAssessments.tenantId, a.tenantId),
+      eq(governanceAssessments.cycleId, a.cycleId),
+      eq(governanceAssessments.assessorPersonId, a.assessorPersonId),
+      eq(governanceAssessments.targetType, a.targetType),
+      eq(governanceAssessments.targetId, a.targetId),
+      eq(governanceAssessments.dimensionKey, a.dimensionKey),
+      eq(governanceAssessments.feedbackTypeId, a.feedbackTypeId)
+    ))
+    .limit(1);
+
+  if (existing.length > 0) {
+    return await db.update(governanceAssessments)
+      .set({
+        score: a.score,
+        rag: a.rag,
+        note: a.note,
+        confidenceNote: a.confidenceNote,
+        submittedAt: a.submittedAt,
+      })
+      .where(eq(governanceAssessments.id, existing[0].id));
+  }
+  return await db.insert(governanceAssessments).values(a);
+}
+
+export async function getAssessmentsByAssessor(
+  assessorPersonId: number,
+  cycleId: number,
+  tenantId: number
+) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(governanceAssessments)
+    .where(and(
+      eq(governanceAssessments.tenantId, tenantId),
+      eq(governanceAssessments.cycleId, cycleId),
+      eq(governanceAssessments.assessorPersonId, assessorPersonId)
+    ));
+}
+
+export async function getAssessmentsForTarget(
+  targetType: "ROLE" | "COMPANY" | "CHAIN",
+  targetId: number,
+  cycleId: number,
+  tenantId: number
+) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(governanceAssessments)
+    .where(and(
+      eq(governanceAssessments.tenantId, tenantId),
+      eq(governanceAssessments.cycleId, cycleId),
+      eq(governanceAssessments.targetType, targetType),
+      eq(governanceAssessments.targetId, targetId)
+    ));
+}
+
+export async function getAssessmentsByCycle(cycleId: number, tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(governanceAssessments)
+    .where(and(
+      eq(governanceAssessments.tenantId, tenantId),
+      eq(governanceAssessments.cycleId, cycleId)
+    ));
+}
+
+// ============================================================================
+// ASSESSMENT ASSIGNMENTS
+// ============================================================================
+
+export async function createAssessmentAssignments(assignments: InsertAssessmentAssignment[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  if (assignments.length === 0) return;
+  return await db.insert(assessmentAssignments).values(assignments);
+}
+
+export async function getAssignmentsForAssessor(
+  assessorPersonId: number,
+  cycleId: number,
+  tenantId: number
+) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(assessmentAssignments)
+    .where(and(
+      eq(assessmentAssignments.tenantId, tenantId),
+      eq(assessmentAssignments.cycleId, cycleId),
+      eq(assessmentAssignments.assessorPersonId, assessorPersonId)
+    ));
+}
+
+export async function getAssignmentsByCycle(cycleId: number, tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(assessmentAssignments)
+    .where(and(
+      eq(assessmentAssignments.tenantId, tenantId),
+      eq(assessmentAssignments.cycleId, cycleId)
+    ));
+}
+
+export async function updateAssignmentStatus(
+  assignmentId: number,
+  status: "PENDING" | "IN_PROGRESS" | "SUBMITTED" | "OVERDUE",
+  tenantId: number
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.update(assessmentAssignments)
+    .set({ status })
+    .where(and(
+      eq(assessmentAssignments.id, assignmentId),
+      eq(assessmentAssignments.tenantId, tenantId)
+    ));
+}
+
+// ============================================================================
+// MANDATE JOURNALS
+// ============================================================================
+
+export async function upsertMandateJournal(j: InsertMandateJournal) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await db.select().from(mandateJournals)
+    .where(and(
+      eq(mandateJournals.tenantId, j.tenantId),
+      eq(mandateJournals.personId, j.personId),
+      eq(mandateJournals.cycleId, j.cycleId),
+      eq(mandateJournals.dimensionKey, j.dimensionKey)
+    ))
+    .limit(1);
+
+  if (existing.length > 0) {
+    return await db.update(mandateJournals)
+      .set({
+        logText: j.logText,
+        planText: j.planText,
+        planItems: j.planItems,
+        roleId: j.roleId,
+        orgUnitId: j.orgUnitId,
+      })
+      .where(eq(mandateJournals.id, existing[0].id));
+  }
+  return await db.insert(mandateJournals).values(j);
+}
+
+export async function getMandateJournalsByPersonAndCycle(
+  personId: number,
+  cycleId: number,
+  tenantId: number
+) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(mandateJournals)
+    .where(and(
+      eq(mandateJournals.tenantId, tenantId),
+      eq(mandateJournals.personId, personId),
+      eq(mandateJournals.cycleId, cycleId)
+    ));
+}
+
+export async function getLastMandateJournal(
+  personId: number,
+  dimensionKey: string,
+  beforeCycleId: number,
+  tenantId: number
+) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(mandateJournals)
+    .where(and(
+      eq(mandateJournals.tenantId, tenantId),
+      eq(mandateJournals.personId, personId),
+      eq(mandateJournals.dimensionKey, dimensionKey),
+      sql`${mandateJournals.cycleId} < ${beforeCycleId}`
+    ))
+    .orderBy(desc(mandateJournals.cycleId))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+// ============================================================================
+// COMPANY REFLECTIONS
+// ============================================================================
+
+export async function upsertCompanyReflection(r: InsertCompanyReflection) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await db.select().from(companyReflections)
+    .where(and(
+      eq(companyReflections.tenantId, r.tenantId),
+      eq(companyReflections.orgUnitId, r.orgUnitId),
+      eq(companyReflections.cycleId, r.cycleId)
+    ))
+    .limit(1);
+
+  if (existing.length > 0) {
+    return await db.update(companyReflections)
+      .set({
+        wentWell: r.wentWell,
+        didntGoWell: r.didntGoWell,
+        risks: r.risks,
+        needsFromFund: r.needsFromFund,
+        forwardCommitments: r.forwardCommitments,
+      })
+      .where(eq(companyReflections.id, existing[0].id));
+  }
+  return await db.insert(companyReflections).values(r);
+}
+
+export async function getCompanyReflection(
+  orgUnitId: number,
+  cycleId: number,
+  tenantId: number
+) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(companyReflections)
+    .where(and(
+      eq(companyReflections.tenantId, tenantId),
+      eq(companyReflections.orgUnitId, orgUnitId),
+      eq(companyReflections.cycleId, cycleId)
+    ))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getCompanyReflectionsByCycle(cycleId: number, tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(companyReflections)
+    .where(and(
+      eq(companyReflections.tenantId, tenantId),
+      eq(companyReflections.cycleId, cycleId)
+    ));
+}
+
+// ============================================================================
+// CHAIRMAN GUIDANCE
+// ============================================================================
+
+export async function createChairmanGuidance(g: InsertChairmanGuidance) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(chairmanGuidance).values(g);
+}
+
+export async function getChairmanGuidanceForTarget(
+  targetType: "ROLE" | "COMPANY",
+  targetId: number,
+  cycleId: number,
+  tenantId: number
+) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(chairmanGuidance)
+    .where(and(
+      eq(chairmanGuidance.tenantId, tenantId),
+      eq(chairmanGuidance.cycleId, cycleId),
+      eq(chairmanGuidance.targetType, targetType),
+      eq(chairmanGuidance.targetId, targetId)
+    ));
+}
+
+// ============================================================================
+// DEPENDENCY CHAINS
+// ============================================================================
+
+export async function getDependencyChainsByTenant(tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(dependencyChains)
+    .where(eq(dependencyChains.tenantId, tenantId))
+    .orderBy(asc(dependencyChains.sortOrder));
+}
+
+export async function createDependencyChain(c: InsertDependencyChain) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(dependencyChains).values(c);
+}
+
+// ============================================================================
+// AI INSIGHTS
+// ============================================================================
+
+export async function createAiInsight(i: InsertAiInsight) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db.insert(aiInsights).values(i);
+}
+
+export async function getAiInsightsByCycle(cycleId: number, tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(aiInsights)
+    .where(and(
+      eq(aiInsights.tenantId, tenantId),
+      eq(aiInsights.cycleId, cycleId)
+    ))
+    .orderBy(desc(aiInsights.severity), desc(aiInsights.createdAt));
+}
+
+export async function getAiInsightsByTarget(
+  targetType: "ROLE" | "COMPANY" | "CHAIN" | "FUND",
+  targetId: number,
+  tenantId: number
+) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(aiInsights)
+    .where(and(
+      eq(aiInsights.tenantId, tenantId),
+      eq(aiInsights.targetType, targetType),
+      eq(aiInsights.targetId, targetId)
+    ))
+    .orderBy(desc(aiInsights.createdAt));
 }
