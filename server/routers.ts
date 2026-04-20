@@ -7,6 +7,7 @@ import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
 import { processAskQuery, getSuggestedQueries } from "./ai-ask";
 import { processUploadedFile } from "./ai-extraction";
 import * as db from "./db";
+import * as governanceNotifications from "./governance-notifications";
 import { CORE_VALUES, OBSERVATION_TEMPLATES, getDataSufficiencyLevel } from "../shared/constants";
 
 // ============================================================================
@@ -738,6 +739,19 @@ const governanceRouter = router({
       const ok = await db.isChairmanOrAdmin(ctx.user.id, input.tenantId);
       if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: "Only the Chairman or Admin can change cycle state." });
       await db.updateGovernanceCycleStatus(input.cycleId, input.status, input.tenantId);
+
+      // Fan out governance notifications on status transitions. Fire-and-forget.
+      if (input.status === "OPEN" || input.status === "REVEALED") {
+        const cycles = await db.getGovernanceCyclesByTenant(input.tenantId);
+        const cycle = cycles.find((c) => c.id === input.cycleId);
+        if (cycle) {
+          if (input.status === "OPEN") {
+            governanceNotifications.notifyCycleOpen(input.tenantId, cycle.month).catch(() => {});
+          } else {
+            governanceNotifications.notifyCycleReveal(input.tenantId, cycle.month).catch(() => {});
+          }
+        }
+      }
       return { success: true };
     }),
 
@@ -788,6 +802,26 @@ const governanceRouter = router({
         confidenceNote: input.confidenceNote,
         submittedAt: input.submit ? new Date() : null,
       });
+
+      // If Chairman is submitting, notify the target so they know their
+      // perception-gap panel will unlock once they also submit.
+      if (input.submit) {
+        const chairmanType = await db.getFeedbackTypeByKey("chairman", input.tenantId);
+        if (chairmanType && chairmanType.id === input.feedbackTypeId) {
+          const cycles = await db.getGovernanceCyclesByTenant(input.tenantId);
+          const cycle = cycles.find((c) => c.id === input.cycleId);
+          const month = cycle?.month ?? "this cycle";
+          if (input.targetType === "ROLE") {
+            governanceNotifications
+              .notifyChairmanSubmittedForRoleTarget(input.tenantId, input.targetId, month)
+              .catch(() => {});
+          } else if (input.targetType === "COMPANY") {
+            governanceNotifications
+              .notifyChairmanSubmittedForCompanyTarget(input.tenantId, input.targetId, month)
+              .catch(() => {});
+          }
+        }
+      }
       return { success: true };
     }),
 
