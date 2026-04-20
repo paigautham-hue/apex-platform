@@ -769,6 +769,200 @@ const governanceRouter = router({
       return await db.getFeedbackTypesByTenant(input.tenantId);
     }),
 
+  listAllFeedbackTypes: protectedProcedure
+    .input(z.object({ tenantId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.listAllFeedbackTypes(input.tenantId);
+    }),
+
+  createFeedbackType: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      key: z.string().min(1).max(50),
+      label: z.string().min(1).max(100),
+      description: z.string().nullable().optional(),
+      visibilityRule: z.enum(["IMMEDIATE", "AFTER_ALL_SUBMIT", "AFTER_DEADLINE", "ADMIN_RELEASE"]),
+      isBlind: z.boolean(),
+      cadence: z.enum(["MONTHLY", "QUARTERLY", "SEMI_ANNUAL", "ANNUAL"]),
+      revealTrigger: z.string().nullable().optional(),
+      sortOrder: z.number().int().default(0),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const ok = await db.isChairmanOrAdmin(ctx.user.id, input.tenantId);
+      if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: "Only the Chairman or Admin can add feedback types." });
+      await db.createFeedbackType({
+        tenantId: input.tenantId,
+        key: input.key,
+        label: input.label,
+        description: input.description ?? null,
+        visibilityRule: input.visibilityRule,
+        isBlind: input.isBlind,
+        cadence: input.cadence,
+        revealTrigger: input.revealTrigger ?? null,
+        sortOrder: input.sortOrder,
+        isActive: true,
+      });
+      return { success: true };
+    }),
+
+  updateFeedbackType: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      tenantId: z.number(),
+      patch: z.object({
+        label: z.string().optional(),
+        description: z.string().nullable().optional(),
+        visibilityRule: z.enum(["IMMEDIATE", "AFTER_ALL_SUBMIT", "AFTER_DEADLINE", "ADMIN_RELEASE"]).optional(),
+        isBlind: z.boolean().optional(),
+        cadence: z.enum(["MONTHLY", "QUARTERLY", "SEMI_ANNUAL", "ANNUAL"]).optional(),
+        revealTrigger: z.string().nullable().optional(),
+        isActive: z.boolean().optional(),
+        sortOrder: z.number().int().optional(),
+      }),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const ok = await db.isChairmanOrAdmin(ctx.user.id, input.tenantId);
+      if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: "Only the Chairman or Admin can update feedback types." });
+      await db.updateFeedbackType(input.id, input.tenantId, input.patch);
+      return { success: true };
+    }),
+
+  // Generate assessment assignments for a cycle using a rule set.
+  // PEER: each CXO gets assignments to rate `perAssessor` randomly-selected
+  //   CXO peers (excluding themselves).
+  // UPWARD: each CEO gets assignments to rate every CXO in the holding.
+  // SELF: self-assignments for every CXO and CEO (so their Bridge/Island
+  //   shows a 'pending' row in the Chairman dashboard before submission).
+  // CHAIRMAN: Chairman gets assignments to rate every CXO role and every
+  //   portfolio company.
+  generateAssignments: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      cycleId: z.number(),
+      feedbackTypeKey: z.enum(["self", "chairman", "peer", "upward"]),
+      perAssessor: z.number().int().min(1).max(10).default(3),
+      dueDate: z.date().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const ok = await db.isChairmanOrAdmin(ctx.user.id, input.tenantId);
+      if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: "Only the Chairman or Admin can generate assignments." });
+
+      const feedbackType = await db.getFeedbackTypeByKey(input.feedbackTypeKey, input.tenantId);
+      if (!feedbackType) throw new TRPCError({ code: "NOT_FOUND", message: `Feedback type '${input.feedbackTypeKey}' not configured.` });
+
+      const roles = await db.getRolesByTenant(input.tenantId);
+      const companies = (await db.getOrgUnitsByTenant(input.tenantId)).filter((u) => u.type === "PORTFOLIO_COMPANY");
+      const cxoRoles = roles.filter((r) => r.roleType === "CXO" || r.roleType === "GROUP_CEO" || r.roleType === "GROUP_CHRO");
+      const ceoRoles = roles.filter((r) => r.roleType === "CEO");
+      const chairmanRole = roles.find((r) => r.roleType === "CHAIRMAN");
+
+      const assignments: Array<{
+        tenantId: number;
+        cycleId: number;
+        assessorPersonId: number;
+        targetType: "ROLE" | "COMPANY" | "CHAIN";
+        targetId: number;
+        feedbackTypeId: number;
+        status: "PENDING";
+        dueDate: Date | null;
+      }> = [];
+
+      const pick = <T,>(arr: T[], n: number, exclude: (t: T) => boolean): T[] => {
+        const pool = arr.filter((x) => !exclude(x));
+        const shuffled = [...pool].sort(() => Math.random() - 0.5);
+        return shuffled.slice(0, Math.min(n, shuffled.length));
+      };
+
+      if (input.feedbackTypeKey === "self") {
+        for (const role of [...cxoRoles, ...ceoRoles]) {
+          assignments.push({
+            tenantId: input.tenantId,
+            cycleId: input.cycleId,
+            assessorPersonId: role.personId,
+            targetType: "ROLE",
+            targetId: role.id,
+            feedbackTypeId: feedbackType.id,
+            status: "PENDING",
+            dueDate: input.dueDate ?? null,
+          });
+        }
+        // CEOs also self-assess their company
+        for (const role of ceoRoles) {
+          assignments.push({
+            tenantId: input.tenantId,
+            cycleId: input.cycleId,
+            assessorPersonId: role.personId,
+            targetType: "COMPANY",
+            targetId: role.orgUnitId,
+            feedbackTypeId: feedbackType.id,
+            status: "PENDING",
+            dueDate: input.dueDate ?? null,
+          });
+        }
+      } else if (input.feedbackTypeKey === "chairman") {
+        if (!chairmanRole) throw new TRPCError({ code: "NOT_FOUND", message: "No Chairman role configured." });
+        for (const role of [...cxoRoles, ...ceoRoles]) {
+          assignments.push({
+            tenantId: input.tenantId,
+            cycleId: input.cycleId,
+            assessorPersonId: chairmanRole.personId,
+            targetType: "ROLE",
+            targetId: role.id,
+            feedbackTypeId: feedbackType.id,
+            status: "PENDING",
+            dueDate: input.dueDate ?? null,
+          });
+        }
+        for (const company of companies) {
+          assignments.push({
+            tenantId: input.tenantId,
+            cycleId: input.cycleId,
+            assessorPersonId: chairmanRole.personId,
+            targetType: "COMPANY",
+            targetId: company.id,
+            feedbackTypeId: feedbackType.id,
+            status: "PENDING",
+            dueDate: input.dueDate ?? null,
+          });
+        }
+      } else if (input.feedbackTypeKey === "peer") {
+        for (const assessorRole of cxoRoles) {
+          const peers = pick(cxoRoles, input.perAssessor, (r) => r.id === assessorRole.id);
+          for (const target of peers) {
+            assignments.push({
+              tenantId: input.tenantId,
+              cycleId: input.cycleId,
+              assessorPersonId: assessorRole.personId,
+              targetType: "ROLE",
+              targetId: target.id,
+              feedbackTypeId: feedbackType.id,
+              status: "PENDING",
+              dueDate: input.dueDate ?? null,
+            });
+          }
+        }
+      } else if (input.feedbackTypeKey === "upward") {
+        // Each CEO rates every CXO (upward feedback into the fund)
+        for (const ceo of ceoRoles) {
+          for (const target of cxoRoles) {
+            assignments.push({
+              tenantId: input.tenantId,
+              cycleId: input.cycleId,
+              assessorPersonId: ceo.personId,
+              targetType: "ROLE",
+              targetId: target.id,
+              feedbackTypeId: feedbackType.id,
+              status: "PENDING",
+              dueDate: input.dueDate ?? null,
+            });
+          }
+        }
+      }
+
+      await db.createAssessmentAssignments(assignments);
+      return { success: true, count: assignments.length };
+    }),
+
   // --- Assessments ---
   upsertAssessment: protectedProcedure
     .input(z.object({

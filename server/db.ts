@@ -753,6 +753,29 @@ export async function createFeedbackType(type: InsertFeedbackType) {
   return await db.insert(feedbackTypes).values(type);
 }
 
+export async function updateFeedbackType(
+  id: number,
+  tenantId: number,
+  patch: Partial<InsertFeedbackType>,
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db
+    .update(feedbackTypes)
+    .set(patch)
+    .where(and(eq(feedbackTypes.id, id), eq(feedbackTypes.tenantId, tenantId)));
+}
+
+export async function listAllFeedbackTypes(tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select()
+    .from(feedbackTypes)
+    .where(eq(feedbackTypes.tenantId, tenantId))
+    .orderBy(asc(feedbackTypes.sortOrder));
+}
+
 // ============================================================================
 // GOVERNANCE CYCLES
 // ============================================================================
