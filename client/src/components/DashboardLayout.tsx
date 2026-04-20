@@ -22,7 +22,7 @@ import {
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import NotificationCenter from "./NotificationCenter";
-import { Home, Users, Target, BarChart3, MessageSquare, Calendar, Settings, LogOut, PanelLeft, Plus, Brain, FileText, DollarSign, Lightbulb, Anchor, Palmtree, Ship } from "lucide-react";
+import { Home, Users, Target, BarChart3, MessageSquare, Calendar, Settings, LogOut, PanelLeft, Plus, Brain, FileText, DollarSign, Lightbulb, Anchor, Palmtree, Ship, Settings2, UsersRound } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -33,7 +33,10 @@ const menuItems = [
   { icon: Anchor, label: "My Bridge", path: "/my-bridge" },
   { icon: Palmtree, label: "My Island", path: "/my-island" },
   { icon: Ship, label: "Chairman", path: "/chairman" },
+  { icon: Ship, label: "Chairman Assess", path: "/chairman/assess" },
+  { icon: UsersRound, label: "360 Feedback", path: "/360" },
   { icon: DollarSign, label: "Financial Cockpit", path: "/financial-cockpit" },
+  { icon: Settings2, label: "Governance Admin", path: "/governance-admin" },
   { icon: Users, label: "People", path: "/people" },
   { icon: Plus, label: "Capture", path: "/capture" },
   { icon: Brain, label: "AI Ask", path: "/ask" },
