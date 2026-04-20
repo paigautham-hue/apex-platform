@@ -6,7 +6,18 @@
 import { invokeLLM } from "./_core/llm";
 import { getDb } from "./db";
 import { eq, and, desc, sql } from "drizzle-orm";
-import { observations, persons, memories, evidence, plans, metrics } from "../drizzle/schema";
+import {
+  observations,
+  persons,
+  memories,
+  evidence,
+  plans,
+  metrics,
+  governanceAssessments,
+  mandateJournals,
+  companyReflections,
+  aiInsights,
+} from "../drizzle/schema";
 
 export type AskQuery = {
   question: string;
@@ -153,7 +164,50 @@ function routeQuery(expandedQuery: string[]): string[] {
   if (queryText.includes("evidence") || queryText.includes("document") || queryText.includes("file")) {
     sources.push("evidence");
   }
-  
+
+  // Governance sources — added in Phase 4.1
+  if (
+    queryText.includes("perception") ||
+    queryText.includes("gap") ||
+    queryText.includes("chairman") ||
+    queryText.includes("self-rating") ||
+    queryText.includes("assessment") ||
+    queryText.includes("mandate")
+  ) {
+    sources.push("governance_assessments");
+  }
+  if (
+    queryText.includes("journal") ||
+    queryText.includes("captain's log") ||
+    queryText.includes("mandate") ||
+    queryText.includes("commitment") ||
+    queryText.includes("defer") ||
+    queryText.includes("next heading") ||
+    queryText.includes("plan for") ||
+    queryText.includes("what did") ||
+    queryText.includes("what was done")
+  ) {
+    sources.push("mandate_journals");
+  }
+  if (
+    queryText.includes("reflection") ||
+    queryText.includes("went well") ||
+    queryText.includes("risk") ||
+    queryText.includes("needs from fund") ||
+    queryText.includes("company monthly")
+  ) {
+    sources.push("company_reflections");
+  }
+  if (
+    queryText.includes("chain") ||
+    queryText.includes("fund vitality") ||
+    queryText.includes("insight") ||
+    queryText.includes("trend") ||
+    queryText.includes("portfolio health")
+  ) {
+    sources.push("ai_insights");
+  }
+
   return sources;
 }
 
@@ -209,10 +263,51 @@ async function retrieveEvidence(sources: string[], query: AskQuery): Promise<any
       .where(eq(evidence.tenantId, query.tenantId))
       .orderBy(desc(evidence.createdAt))
       .limit(30);
-    
+
     results.push(...evid.map(e => ({ type: "evidence", data: e })));
   }
-  
+
+  // Governance retrievers — Phase 4.1
+  if (sources.includes("governance_assessments")) {
+    const ga = await db
+      .select()
+      .from(governanceAssessments)
+      .where(eq(governanceAssessments.tenantId, query.tenantId))
+      .orderBy(desc(governanceAssessments.createdAt))
+      .limit(100);
+    results.push(...ga.map((a) => ({ type: "governance_assessment", data: a })));
+  }
+
+  if (sources.includes("mandate_journals")) {
+    const mj = await db
+      .select()
+      .from(mandateJournals)
+      .where(eq(mandateJournals.tenantId, query.tenantId))
+      .orderBy(desc(mandateJournals.createdAt))
+      .limit(40);
+    results.push(...mj.map((j) => ({ type: "mandate_journal", data: j })));
+  }
+
+  if (sources.includes("company_reflections")) {
+    const cr = await db
+      .select()
+      .from(companyReflections)
+      .where(eq(companyReflections.tenantId, query.tenantId))
+      .orderBy(desc(companyReflections.createdAt))
+      .limit(20);
+    results.push(...cr.map((r) => ({ type: "company_reflection", data: r })));
+  }
+
+  if (sources.includes("ai_insights")) {
+    const ins = await db
+      .select()
+      .from(aiInsights)
+      .where(eq(aiInsights.tenantId, query.tenantId))
+      .orderBy(desc(aiInsights.createdAt))
+      .limit(30);
+    results.push(...ins.map((i) => ({ type: "ai_insight", data: i })));
+  }
+
   return results;
 }
 
@@ -348,11 +443,20 @@ Format your response as JSON with:
  */
 export async function getSuggestedQueries(tenantId: number, userId: number): Promise<string[]> {
   return [
+    // Existing performance-oriented prompts
     "How is my team performing this quarter?",
     "Who are my top performers?",
     "What are the key development areas for my direct reports?",
     "Show me recent observations about [person name]",
     "What goals are at risk?",
-    "Compare performance across my teams"
+    "Compare performance across my teams",
+
+    // Governance-focused prompts — Phase 4.1
+    "Show me the biggest perception gaps this month",
+    "Which CEOs have been deferring the same commitments?",
+    "What's the Financial Truth chain health trend over 6 months?",
+    "Compare MPI's self-assessment with the Chairman's assessment",
+    "Which mandates went un-logged this cycle?",
+    "What needs-from-fund are being raised most often?",
   ];
 }
