@@ -528,6 +528,195 @@ export const auditLogs = mysqlTable("auditLogs", {
 }));
 
 // ============================================================================
+// GOVERNANCE CYCLES & FEEDBACK GRAPH
+// ============================================================================
+
+// Configurable feedback types — extensible for 360 feedback
+export const feedbackTypes = mysqlTable("feedbackTypes", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  key: varchar("key", { length: 50 }).notNull(),
+  label: varchar("label", { length: 100 }).notNull(),
+  description: text("description"),
+  visibilityRule: mysqlEnum("visibilityRule", ["IMMEDIATE", "AFTER_ALL_SUBMIT", "AFTER_DEADLINE", "ADMIN_RELEASE"]).default("AFTER_ALL_SUBMIT"),
+  isBlind: boolean("isBlind").default(false),
+  revealTrigger: varchar("revealTrigger", { length: 100 }),
+  cadence: mysqlEnum("cadence", ["MONTHLY", "QUARTERLY", "SEMI_ANNUAL", "ANNUAL"]).default("MONTHLY"),
+  isActive: boolean("isActive").default(true),
+  sortOrder: int("sortOrder").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("feedbackTypes_tenantId_idx").on(table.tenantId),
+  keyIdx: index("feedbackTypes_key_idx").on(table.key),
+}));
+
+// Monthly/quarterly assessment cycles
+export const governanceCycles = mysqlTable("governanceCycles", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  month: varchar("month", { length: 7 }).notNull(),
+  status: mysqlEnum("status", ["DRAFT", "OPEN", "CLOSED", "REVEALED"]).default("DRAFT"),
+  openDate: timestamp("openDate"),
+  deadlineDate: timestamp("deadlineDate"),
+  revealDate: timestamp("revealDate"),
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("governanceCycles_tenantId_idx").on(table.tenantId),
+  monthIdx: index("governanceCycles_month_idx").on(table.month),
+  statusIdx: index("governanceCycles_status_idx").on(table.status),
+}));
+
+// Generic assessment table — handles self, chairman, peer, 360, all types
+export const governanceAssessments = mysqlTable("governanceAssessments", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  cycleId: int("cycleId").notNull(),
+  assessorPersonId: int("assessorPersonId").notNull(),
+  targetType: mysqlEnum("targetType", ["ROLE", "COMPANY", "CHAIN"]).notNull(),
+  targetId: int("targetId").notNull(),
+  dimensionKey: varchar("dimensionKey", { length: 100 }).notNull(),
+  feedbackTypeId: int("feedbackTypeId").notNull(),
+  score: int("score"),
+  rag: mysqlEnum("rag", ["RED", "AMBER", "GREEN"]),
+  note: text("note"),
+  confidenceNote: text("confidenceNote"),
+  submittedAt: timestamp("submittedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("govAssessments_tenantId_idx").on(table.tenantId),
+  cycleIdx: index("govAssessments_cycleId_idx").on(table.cycleId),
+  assessorIdx: index("govAssessments_assessorPersonId_idx").on(table.assessorPersonId),
+  targetIdx: index("govAssessments_targetType_targetId_idx").on(table.targetType, table.targetId),
+  feedbackTypeIdx: index("govAssessments_feedbackTypeId_idx").on(table.feedbackTypeId),
+}));
+
+// What each user needs to assess this cycle
+export const assessmentAssignments = mysqlTable("assessmentAssignments", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  cycleId: int("cycleId").notNull(),
+  assessorPersonId: int("assessorPersonId").notNull(),
+  targetType: mysqlEnum("targetType", ["ROLE", "COMPANY", "CHAIN"]).notNull(),
+  targetId: int("targetId").notNull(),
+  feedbackTypeId: int("feedbackTypeId").notNull(),
+  status: mysqlEnum("status", ["PENDING", "IN_PROGRESS", "SUBMITTED", "OVERDUE"]).default("PENDING"),
+  dueDate: timestamp("dueDate"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("assessAssign_tenantId_idx").on(table.tenantId),
+  cycleIdx: index("assessAssign_cycleId_idx").on(table.cycleId),
+  assessorIdx: index("assessAssign_assessorPersonId_idx").on(table.assessorPersonId),
+  statusIdx: index("assessAssign_status_idx").on(table.status),
+}));
+
+// ============================================================================
+// MANDATE JOURNALS & REFLECTIONS
+// ============================================================================
+
+// Per-mandate monthly journal entries (Captain's Log)
+export const mandateJournals = mysqlTable("mandateJournals", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  personId: int("personId").notNull(),
+  cycleId: int("cycleId").notNull(),
+  roleId: int("roleId"),
+  orgUnitId: int("orgUnitId"),
+  dimensionKey: varchar("dimensionKey", { length: 100 }).notNull(),
+  logText: text("logText"),
+  planText: text("planText"),
+  planItems: json("planItems").$type<Array<{ item: string; completedNextMonth: boolean | null }>>(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("mandateJournals_tenantId_idx").on(table.tenantId),
+  personIdx: index("mandateJournals_personId_idx").on(table.personId),
+  cycleIdx: index("mandateJournals_cycleId_idx").on(table.cycleId),
+  roleIdx: index("mandateJournals_roleId_idx").on(table.roleId),
+}));
+
+// CEO's monthly structured company reflection
+export const companyReflections = mysqlTable("companyReflections", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  ceoPersonId: int("ceoPersonId").notNull(),
+  orgUnitId: int("orgUnitId").notNull(),
+  cycleId: int("cycleId").notNull(),
+  wentWell: json("wentWell").$type<string[]>(),
+  didntGoWell: json("didntGoWell").$type<string[]>(),
+  risks: json("risks").$type<string[]>(),
+  needsFromFund: json("needsFromFund").$type<string[]>(),
+  forwardCommitments: json("forwardCommitments").$type<string[]>(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("companyReflections_tenantId_idx").on(table.tenantId),
+  ceoIdx: index("companyReflections_ceoPersonId_idx").on(table.ceoPersonId),
+  cycleIdx: index("companyReflections_cycleId_idx").on(table.cycleId),
+  orgUnitIdx: index("companyReflections_orgUnitId_idx").on(table.orgUnitId),
+}));
+
+// Chairman's forward-looking guidance notes
+export const chairmanGuidance = mysqlTable("chairmanGuidance", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  cycleId: int("cycleId").notNull(),
+  chairmanPersonId: int("chairmanPersonId").notNull(),
+  targetType: mysqlEnum("targetType", ["ROLE", "COMPANY"]).notNull(),
+  targetId: int("targetId").notNull(),
+  dimensionKey: varchar("dimensionKey", { length: 100 }),
+  guidanceText: text("guidanceText").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("chairmanGuidance_tenantId_idx").on(table.tenantId),
+  cycleIdx: index("chairmanGuidance_cycleId_idx").on(table.cycleId),
+  targetIdx: index("chairmanGuidance_targetType_targetId_idx").on(table.targetType, table.targetId),
+}));
+
+// ============================================================================
+// DEPENDENCY CHAINS
+// ============================================================================
+
+export const dependencyChains = mysqlTable("dependencyChains", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  name: varchar("name", { length: 100 }).notNull(),
+  color: varchar("color", { length: 20 }).notNull(),
+  description: text("description"),
+  nodeRoleIds: json("nodeRoleIds").$type<number[]>(),
+  sortOrder: int("sortOrder").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("dependencyChains_tenantId_idx").on(table.tenantId),
+}));
+
+// ============================================================================
+// AI INSIGHTS
+// ============================================================================
+
+export const aiInsights = mysqlTable("aiInsights", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  cycleId: int("cycleId"),
+  insightType: mysqlEnum("insightType", [
+    "PERCEPTION_GAP", "COMMITMENT_TRACKING", "ENGAGEMENT_PATTERN",
+    "CHAIN_RISK", "FINANCIAL_MISMATCH", "TREND_ALERT", "360_SYNTHESIS"
+  ]).notNull(),
+  targetType: mysqlEnum("targetType", ["ROLE", "COMPANY", "CHAIN", "FUND"]),
+  targetId: int("targetId"),
+  insightText: text("insightText").notNull(),
+  severity: mysqlEnum("severity", ["INFO", "WARNING", "CRITICAL"]).default("INFO"),
+  metadata: json("metadata").$type<Record<string, any>>(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("aiInsights_tenantId_idx").on(table.tenantId),
+  cycleIdx: index("aiInsights_cycleId_idx").on(table.cycleId),
+  typeIdx: index("aiInsights_insightType_idx").on(table.insightType),
+}));
+
+// ============================================================================
 // TYPE EXPORTS
 // ============================================================================
 
@@ -596,3 +785,30 @@ export type InsertFinancialTemplate = typeof financialTemplates.$inferInsert;
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = typeof auditLogs.$inferInsert;
+
+export type FeedbackType = typeof feedbackTypes.$inferSelect;
+export type InsertFeedbackType = typeof feedbackTypes.$inferInsert;
+
+export type GovernanceCycle = typeof governanceCycles.$inferSelect;
+export type InsertGovernanceCycle = typeof governanceCycles.$inferInsert;
+
+export type GovernanceAssessment = typeof governanceAssessments.$inferSelect;
+export type InsertGovernanceAssessment = typeof governanceAssessments.$inferInsert;
+
+export type AssessmentAssignment = typeof assessmentAssignments.$inferSelect;
+export type InsertAssessmentAssignment = typeof assessmentAssignments.$inferInsert;
+
+export type MandateJournal = typeof mandateJournals.$inferSelect;
+export type InsertMandateJournal = typeof mandateJournals.$inferInsert;
+
+export type CompanyReflection = typeof companyReflections.$inferSelect;
+export type InsertCompanyReflection = typeof companyReflections.$inferInsert;
+
+export type ChairmanGuidance = typeof chairmanGuidance.$inferSelect;
+export type InsertChairmanGuidance = typeof chairmanGuidance.$inferInsert;
+
+export type DependencyChain = typeof dependencyChains.$inferSelect;
+export type InsertDependencyChain = typeof dependencyChains.$inferInsert;
+
+export type AiInsight = typeof aiInsights.$inferSelect;
+export type InsertAiInsight = typeof aiInsights.$inferInsert;
