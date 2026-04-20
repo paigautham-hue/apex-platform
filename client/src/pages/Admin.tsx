@@ -4,11 +4,27 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Settings, Users, Building2, Target, Award, Calendar } from "lucide-react";
+import { Settings, Users, Building2, Target, Award, Calendar, ShieldAlert, CheckCircle2, XCircle, Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Label } from "@/components/ui/label";
+
+type Challenge = {
+  id: number;
+  tenantId: number;
+  submittedByUserId: number;
+  challengeType: string;
+  description: string;
+  relatedGrantId: number | null;
+  status: string;
+  resolution: string | null;
+  resolvedByUserId: number | null;
+  resolvedAt: Date | null;
+  createdAt: Date;
+};
 
 export default function Admin() {
   const [selectedTab, setSelectedTab] = useState("org-units");
@@ -29,6 +45,34 @@ export default function Admin() {
       refetchOrgUnits();
     },
   });
+
+  // Access Challenges state
+  const [challengeFilter, setChallengeFilter] = useState<"ALL" | "PENDING" | "RESOLVED" | "DISMISSED">("PENDING");
+  const [expandedChallenge, setExpandedChallenge] = useState<number | null>(null);
+  const [resolutionText, setResolutionText] = useState<Record<number, string>>({});
+
+  const { data: challenges, refetch: refetchChallenges } = trpc.accessControl.adminListAllChallenges.useQuery(
+    { statusFilter: challengeFilter },
+    { enabled: selectedTab === "challenges" }
+  );
+
+  const resolveChallengeMutation = trpc.accessControl.resolveChallenge.useMutation({
+    onSuccess: () => {
+      toast.success("Challenge resolved successfully");
+      refetchChallenges();
+      setExpandedChallenge(null);
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const handleResolve = (challengeId: number, status: "RESOLVED" | "DISMISSED") => {
+    const resolution = resolutionText[challengeId];
+    if (!resolution || resolution.trim().length < 5) {
+      toast.error("Please provide a resolution note (at least 5 characters)");
+      return;
+    }
+    resolveChallengeMutation.mutate({ challengeId, resolution, status });
+  };
 
   const startCalibrationMutation = trpc.calibration.startSession.useMutation({
     onSuccess: () => {
@@ -79,7 +123,7 @@ export default function Admin() {
       </div>
 
       <Tabs value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="org-units">
             <Building2 className="h-4 w-4 mr-2" />
             Org Units
@@ -92,9 +136,13 @@ export default function Admin() {
             <Users className="h-4 w-4 mr-2" />
             People
           </TabsTrigger>
+          <TabsTrigger value="challenges" className="relative">
+            <ShieldAlert className="h-4 w-4 mr-2" />
+            Challenges
+          </TabsTrigger>
           <TabsTrigger value="config">
             <Settings className="h-4 w-4 mr-2" />
-            Configuration
+            Config
           </TabsTrigger>
         </TabsList>
 
@@ -282,6 +330,122 @@ export default function Admin() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        {/* Access Challenges Tab */}
+        <TabsContent value="challenges" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Access Challenges</h2>
+              <p className="text-sm text-muted-foreground">Review and resolve user-submitted access challenges</p>
+            </div>
+            <Select value={challengeFilter} onValueChange={(v) => setChallengeFilter(v as typeof challengeFilter)}>
+              <SelectTrigger className="w-40">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="RESOLVED">Resolved</SelectItem>
+                <SelectItem value="DISMISSED">Dismissed</SelectItem>
+                <SelectItem value="ALL">All</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {!challenges || challenges.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <ShieldAlert className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
+                <p className="font-medium">No {challengeFilter.toLowerCase()} challenges</p>
+                <p className="text-sm text-muted-foreground mt-1">All access challenges will appear here for review</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {(challenges as Challenge[]).map((challenge) => (
+                <Card key={challenge.id} className={challenge.status === "PENDING" ? "border-amber-500/40" : ""}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-3 flex-1">
+                        <div className={`mt-0.5 h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${
+                          challenge.status === "PENDING" ? "bg-amber-500/10" :
+                          challenge.status === "RESOLVED" ? "bg-green-500/10" : "bg-muted"
+                        }`}>
+                          {challenge.status === "PENDING" ? <Clock className="h-4 w-4 text-amber-500" /> :
+                           challenge.status === "RESOLVED" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> :
+                           <XCircle className="h-4 w-4 text-muted-foreground" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Badge variant="outline" className="text-xs">
+                              {challenge.challengeType.replace(/_/g, " ")}
+                            </Badge>
+                            <Badge variant={challenge.status === "PENDING" ? "destructive" : challenge.status === "RESOLVED" ? "default" : "secondary"} className="text-xs">
+                              {challenge.status}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground">
+                              #{challenge.id} · {new Date(challenge.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                          <p className="text-sm mt-2 line-clamp-2">{challenge.description}</p>
+                          {challenge.resolution && (
+                            <p className="text-xs text-muted-foreground mt-1 italic">Resolution: {challenge.resolution}</p>
+                          )}
+                        </div>
+                      </div>
+                      {challenge.status === "PENDING" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setExpandedChallenge(expandedChallenge === challenge.id ? null : challenge.id)}
+                        >
+                          {expandedChallenge === challenge.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </div>
+
+                    {/* Expanded resolution panel */}
+                    {expandedChallenge === challenge.id && challenge.status === "PENDING" && (
+                      <div className="mt-4 pt-4 border-t space-y-3">
+                        <div className="space-y-1.5">
+                          <Label htmlFor={`resolution-${challenge.id}`}>Resolution Notes</Label>
+                          <Textarea
+                            id={`resolution-${challenge.id}`}
+                            placeholder="Describe what action was taken or why this challenge is being dismissed..."
+                            rows={3}
+                            value={resolutionText[challenge.id] ?? ""}
+                            onChange={(e) =>
+                              setResolutionText((prev) => ({ ...prev, [challenge.id]: e.target.value }))
+                            }
+                          />
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => handleResolve(challenge.id, "RESOLVED")}
+                            disabled={resolveChallengeMutation.isPending}
+                            className="bg-green-600 hover:bg-green-700"
+                          >
+                            <CheckCircle2 className="h-4 w-4 mr-1" />
+                            Mark Resolved
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleResolve(challenge.id, "DISMISSED")}
+                            disabled={resolveChallengeMutation.isPending}
+                          >
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Dismiss
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         {/* Configuration Tab */}

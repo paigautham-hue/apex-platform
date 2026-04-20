@@ -705,3 +705,25 @@
 - [x] Track onboarding completion in userPreferences
 - [x] Show onboarding wizard for new users on first login
 - [x] Add route /onboarding in App.tsx
+
+## Feature: Admin Challenge Resolution UI ✅
+
+- [x] Add adminListChallenges procedure (all tenants, filter by status)
+- [x] Add adminResolveChallenge procedure with role guard
+- [x] Add ChallengesPanel section to Admin.tsx (new 5th tab)
+- [x] Show pending challenges with submitter, type, description, related grant
+- [x] Allow admin to approve/reject with resolution notes
+- [x] Show resolved challenges history
+
+## Feature: Onboarding Re-trigger ✅
+
+- [x] Add resetOnboarding mutation in preferences router
+- [x] Add "Restart Onboarding" button in NotificationPreferences settings page
+- [x] Redirect to /onboarding after reset
+
+## Feature: Settings Submenu in Sidebar ✅
+
+- [x] Add collapsible Settings submenu in DashboardLayout sidebar
+- [x] Link to /settings/notifications (Notification Preferences)
+- [x] Link to /settings/access-grants (Access Grants)
+- [x] Link to /settings/access-challenge (Access Challenge)

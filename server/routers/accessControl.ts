@@ -120,4 +120,19 @@ export const accessControlRouter = router({
       );
       return { success: true };
     }),
+
+  // ─── Admin: All Challenges Across All Tenants ─────────────────────────────
+
+  adminListAllChallenges: protectedProcedure
+    .input(
+      z.object({
+        statusFilter: z.enum(["ALL", "PENDING", "RESOLVED", "DISMISSED"]).default("PENDING"),
+      })
+    )
+    .query(async ({ input, ctx }) => {
+      if (ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required" });
+      }
+      return await db.adminGetAllChallenges(input.statusFilter === "ALL" ? undefined : input.statusFilter);
+    }),
 });

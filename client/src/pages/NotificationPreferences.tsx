@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Bell, Clock, Zap, Save, CheckCircle } from "lucide-react";
+import { Bell, Clock, Zap, Save, CheckCircle, RefreshCw, Sparkles } from "lucide-react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 
 type PrefsState = {
@@ -60,6 +61,16 @@ export default function NotificationPreferences() {
       setDirty(false);
     }
   }, [savedPrefs]);
+
+  const [, navigate] = useLocation();
+
+  const resetOnboarding = trpc.preferences.resetOnboarding.useMutation({
+    onSuccess: () => {
+      toast.success("Onboarding reset — redirecting to wizard…");
+      setTimeout(() => navigate("/onboarding"), 800);
+    },
+    onError: (err) => toast.error(err.message),
+  });
 
   const savePrefs = trpc.preferences.save.useMutation({
     onSuccess: () => {
@@ -288,6 +299,29 @@ export default function NotificationPreferences() {
               </SelectContent>
             </Select>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Onboarding Re-trigger */}
+      <Card className="border-dashed">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Sparkles className="h-5 w-5 text-primary" />
+            Onboarding Wizard
+          </CardTitle>
+          <CardDescription>
+            Revisit the setup wizard to update your profile, reporting structure, or org unit.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="outline"
+            onClick={() => resetOnboarding.mutate()}
+            disabled={resetOnboarding.isPending}
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            {resetOnboarding.isPending ? "Resetting…" : "Restart Onboarding"}
+          </Button>
         </CardContent>
       </Card>
 

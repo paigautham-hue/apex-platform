@@ -1391,6 +1391,18 @@ export async function upsertUserPreferences(userId: number, data: Partial<Insert
   return await getUserPreferences(userId);
 }
 
+export async function adminGetAllChallenges(status?: "PENDING" | "RESOLVED" | "DISMISSED") {
+  const db = await getDb();
+  if (!db) return [];
+  if (status) {
+    return await db.select().from(accessChallenges)
+      .where(eq(accessChallenges.status, status))
+      .orderBy(desc(accessChallenges.createdAt));
+  }
+  return await db.select().from(accessChallenges)
+    .orderBy(desc(accessChallenges.createdAt));
+}
+
 export async function markOnboardingComplete(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");

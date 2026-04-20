@@ -53,4 +53,12 @@ export const preferencesRouter = router({
     const prefs = await db.getUserPreferences(ctx.user.id);
     return { completed: prefs?.onboardingCompleted ?? false };
   }),
+
+  resetOnboarding: protectedProcedure.mutation(async ({ ctx }) => {
+    await db.upsertUserPreferences(ctx.user.id, {
+      onboardingCompleted: false,
+      onboardingCompletedAt: null,
+    });
+    return { success: true };
+  }),
 });

@@ -23,7 +23,7 @@ import {
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import NotificationCenter from "./NotificationCenter";
-import { Home, Users, Target, BarChart3, MessageSquare, Calendar, Settings, LogOut, PanelLeft, Plus, Brain, FileText, DollarSign, Lightbulb, Anchor, Palmtree, Ship, Settings2, UsersRound } from "lucide-react";
+import { Home, Users, Target, BarChart3, MessageSquare, Calendar, Settings, LogOut, PanelLeft, Plus, Brain, FileText, DollarSign, Lightbulb, Anchor, Palmtree, Ship, Settings2, UsersRound, Bell, ShieldAlert, KeyRound, ChevronDown } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -128,6 +128,75 @@ export default function DashboardLayout({
   );
 }
 
+const settingsSubItems = [
+  { icon: Bell, label: "Notifications", path: "/settings/notifications" },
+  { icon: KeyRound, label: "Access Grants", path: "/settings/access-grants" },
+  { icon: ShieldAlert, label: "Access Challenge", path: "/settings/access-challenge" },
+];
+
+function SettingsSubmenu({
+  location,
+  setLocation,
+  isCollapsed,
+}: {
+  location: string;
+  setLocation: (path: string) => void;
+  isCollapsed: boolean;
+}) {
+  const isSettingsActive = settingsSubItems.some((i) => i.path === location);
+  const [open, setOpen] = useState(isSettingsActive);
+
+  return (
+    <SidebarMenuItem>
+      <SidebarMenuButton
+        isActive={isSettingsActive && isCollapsed}
+        onClick={() => {
+          if (isCollapsed) {
+            setLocation("/settings/notifications");
+          } else {
+            setOpen((o) => !o);
+          }
+        }}
+        tooltip="Settings"
+        className="h-10 transition-all font-normal"
+      >
+        <Settings className={`h-4 w-4 ${isSettingsActive ? "text-primary" : ""}`} />
+        <span className="flex-1">Settings</span>
+        {!isCollapsed && (
+          <ChevronDown
+            className={`h-3 w-3 text-muted-foreground transition-transform ${
+              open ? "rotate-180" : ""
+            }`}
+          />
+        )}
+      </SidebarMenuButton>
+
+      {/* Sub-items — only visible when expanded */}
+      {open && !isCollapsed && (
+        <div className="ml-4 mt-0.5 space-y-0.5 border-l border-border/50 pl-3">
+          {settingsSubItems.map((sub) => {
+            const isActive = location === sub.path;
+            return (
+              <button
+                key={sub.path}
+                onClick={() => setLocation(sub.path)}
+                className={`flex items-center gap-2 w-full rounded-md px-2 py-1.5 text-sm transition-colors ${
+                  isActive
+                    ? "bg-accent text-accent-foreground font-medium"
+                    : "text-muted-foreground hover:text-foreground hover:bg-accent/50"
+                }`}
+              >
+                <sub.icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? "text-primary" : ""}`} />
+                {sub.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </SidebarMenuItem>
+  );
+}
+
 type DashboardLayoutContentProps = {
   children: React.ReactNode;
   setSidebarWidth: (width: number) => void;
@@ -229,6 +298,9 @@ function DashboardLayoutContent({
                   </SidebarMenuItem>
                 );
               })}
+
+              {/* Settings Submenu */}
+              <SettingsSubmenu location={location} setLocation={setLocation} isCollapsed={isCollapsed} />
             </SidebarMenu>
           </SidebarContent>
 
