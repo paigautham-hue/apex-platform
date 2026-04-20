@@ -676,3 +676,32 @@
 - Critical issues fixed: 1/1 (100%)
 - Functional buttons: 95%+
 - Remaining TODOs: 3 low-priority backend implementations for advanced RBAC features
+
+## Feature: Access Control Backend (RBAC) ✅
+
+- [x] Add `accessGrants` table to drizzle/schema.ts
+- [x] Add `accessChallenges` table to drizzle/schema.ts
+- [x] Generate and apply migration SQL for new tables
+- [x] Create server/routers/accessControl.ts with tRPC procedures
+- [x] Wire AccessGrants.tsx to real tRPC mutations
+- [x] Wire AccessChallenge.tsx to real tRPC mutations
+- [x] Add audit trail logging for grant/revoke/challenge actions
+
+## Feature: Persistent Notification Preferences ✅
+
+- [x] Add `userPreferences` table to drizzle/schema.ts
+- [x] Generate and apply migration SQL for userPreferences
+- [x] Create notification preferences procedures in routers
+- [x] Wire NotificationPreferences.tsx to load/save via tRPC
+
+## Feature: Onboarding Wizard ✅
+
+- [x] Create Onboarding.tsx multi-step wizard page
+- [x] Step 1: Welcome + profile name/role setup
+- [x] Step 2: Reporting structure (who they report to)
+- [x] Step 3: Company/org unit selection
+- [x] Step 4: First observation capture walkthrough
+- [x] Step 5: Completion + redirect to TodayFeed
+- [x] Track onboarding completion in userPreferences
+- [x] Show onboarding wizard for new users on first login
+- [x] Add route /onboarding in App.tsx

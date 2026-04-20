@@ -1,45 +1,125 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { Bell, Clock, Zap } from "lucide-react";
+import { Bell, Clock, Zap, Save, CheckCircle } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+
+type PrefsState = {
+  notifyPriorityZero: boolean;
+  notifyInsights: boolean;
+  notifyReminders: boolean;
+  notifyMilestones: boolean;
+  notifyPulseCheck: boolean;
+  notifyAchievementSuggestions: boolean;
+  notifyBrowserPush: boolean;
+  quietHoursStart: string;
+  quietHoursEnd: string;
+  maxNotificationsPerDay: number;
+};
+
+const DEFAULTS: PrefsState = {
+  notifyPriorityZero: true,
+  notifyInsights: true,
+  notifyReminders: true,
+  notifyMilestones: true,
+  notifyPulseCheck: true,
+  notifyAchievementSuggestions: true,
+  notifyBrowserPush: false,
+  quietHoursStart: "22:00",
+  quietHoursEnd: "08:00",
+  maxNotificationsPerDay: 3,
+};
 
 export default function NotificationPreferences() {
-  const [preferences, setPreferences] = useState({
-    priorityZero: true,
-    insights: true,
-    reminders: true,
-    milestones: true,
-    pulseCheck: true,
-    achievementSuggestions: true,
-    browserPush: false,
-    quietHoursStart: "22:00",
-    quietHoursEnd: "08:00",
-    maxPerDay: "3",
+  const utils = trpc.useUtils();
+  const [prefs, setPrefs] = useState<PrefsState>(DEFAULTS);
+  const [dirty, setDirty] = useState(false);
+
+  const { data: savedPrefs, isLoading } = trpc.preferences.get.useQuery();
+
+  // Sync server data into local state when loaded
+  useEffect(() => {
+    if (savedPrefs) {
+      setPrefs({
+        notifyPriorityZero: savedPrefs.notifyPriorityZero,
+        notifyInsights: savedPrefs.notifyInsights,
+        notifyReminders: savedPrefs.notifyReminders,
+        notifyMilestones: savedPrefs.notifyMilestones,
+        notifyPulseCheck: savedPrefs.notifyPulseCheck,
+        notifyAchievementSuggestions: savedPrefs.notifyAchievementSuggestions,
+        notifyBrowserPush: savedPrefs.notifyBrowserPush,
+        quietHoursStart: savedPrefs.quietHoursStart,
+        quietHoursEnd: savedPrefs.quietHoursEnd,
+        maxNotificationsPerDay: savedPrefs.maxNotificationsPerDay,
+      });
+      setDirty(false);
+    }
+  }, [savedPrefs]);
+
+  const savePrefs = trpc.preferences.save.useMutation({
+    onSuccess: () => {
+      toast.success("Notification preferences saved");
+      setDirty(false);
+      utils.preferences.get.invalidate();
+    },
+    onError: (err) => toast.error(err.message),
   });
 
-  const handleToggle = (key: keyof typeof preferences) => {
-    setPreferences((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+  const toggle = (key: keyof PrefsState) => {
+    setPrefs((p) => ({ ...p, [key]: !p[key] }));
+    setDirty(true);
+  };
+
+  const setField = (key: keyof PrefsState, value: string | number) => {
+    setPrefs((p) => ({ ...p, [key]: value }));
+    setDirty(true);
   };
 
   const handleSave = () => {
-    // TODO: Save to backend via tRPC
-    toast.success("Notification preferences saved");
+    savePrefs.mutate({
+      notifyPriorityZero: prefs.notifyPriorityZero,
+      notifyInsights: prefs.notifyInsights,
+      notifyReminders: prefs.notifyReminders,
+      notifyMilestones: prefs.notifyMilestones,
+      notifyPulseCheck: prefs.notifyPulseCheck,
+      notifyAchievementSuggestions: prefs.notifyAchievementSuggestions,
+      notifyBrowserPush: prefs.notifyBrowserPush,
+      quietHoursStart: prefs.quietHoursStart,
+      quietHoursEnd: prefs.quietHoursEnd,
+      maxNotificationsPerDay: prefs.maxNotificationsPerDay,
+    });
   };
+
+  if (isLoading) {
+    return (
+      <div className="container max-w-4xl py-8 space-y-6">
+        <Skeleton className="h-12 w-64" />
+        <Skeleton className="h-64 w-full" />
+        <Skeleton className="h-32 w-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="container max-w-4xl py-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Notification Preferences</h1>
-        <p className="text-muted-foreground mt-2">
-          Customize which notifications you receive and when
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Notification Preferences</h1>
+          <p className="text-muted-foreground mt-2">
+            Customize which notifications you receive and when
+          </p>
+        </div>
+        {!dirty && savedPrefs && (
+          <div className="flex items-center gap-2 text-sm text-green-500">
+            <CheckCircle className="h-4 w-4" />
+            Saved
+          </div>
+        )}
       </div>
 
       <Card>
@@ -49,105 +129,62 @@ export default function NotificationPreferences() {
             Notification Types
           </CardTitle>
           <CardDescription>
-            Choose which types of notifications you want to receive (max 3 priority notifications per day)
+            Choose which types of notifications you want to receive
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="priority-zero" className="text-base">
-                Priority Zero Alerts
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Urgent cross-portfolio priorities requiring immediate attention
-              </p>
+          {[
+            {
+              key: "notifyPriorityZero" as const,
+              id: "priority-zero",
+              label: "Priority Zero Alerts",
+              desc: "Urgent cross-portfolio priorities requiring immediate attention",
+            },
+            {
+              key: "notifyInsights" as const,
+              id: "insights",
+              label: "AI Insights",
+              desc: "Data changes, pattern alerts, and upcoming events",
+            },
+            {
+              key: "notifyReminders" as const,
+              id: "reminders",
+              label: "Reminders",
+              desc: "1:1 prep, review deadlines, and follow-ups",
+            },
+            {
+              key: "notifyMilestones" as const,
+              id: "milestones",
+              label: "Milestone Assessments",
+              desc: "30/60/90/180/365 day milestone reminders",
+            },
+            {
+              key: "notifyPulseCheck" as const,
+              id: "pulse-check",
+              label: "Weekly Pulse Check",
+              desc: "Reminders to complete weekly team pulse check",
+            },
+            {
+              key: "notifyAchievementSuggestions" as const,
+              id: "achievement-suggestions",
+              label: "Achievement Suggestions",
+              desc: "AI-suggested achievements for self-reflection",
+            },
+          ].map(({ key, id, label, desc }) => (
+            <div key={id} className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label htmlFor={id} className="text-base cursor-pointer">
+                  {label}
+                </Label>
+                <p className="text-sm text-muted-foreground">{desc}</p>
+              </div>
+              <Switch
+                id={id}
+                checked={prefs[key] as boolean}
+                onCheckedChange={() => toggle(key)}
+              />
             </div>
-            <Switch
-              id="priority-zero"
-              checked={preferences.priorityZero}
-              onCheckedChange={() => handleToggle("priorityZero")}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="insights" className="text-base">
-                AI Insights
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Data changes, pattern alerts, and upcoming events
-              </p>
-            </div>
-            <Switch
-              id="insights"
-              checked={preferences.insights}
-              onCheckedChange={() => handleToggle("insights")}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="reminders" className="text-base">
-                Reminders
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                1:1 prep, review deadlines, and follow-ups
-              </p>
-            </div>
-            <Switch
-              id="reminders"
-              checked={preferences.reminders}
-              onCheckedChange={() => handleToggle("reminders")}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="milestones" className="text-base">
-                Milestone Assessments
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                30/60/90/180/365 day milestone reminders
-              </p>
-            </div>
-            <Switch
-              id="milestones"
-              checked={preferences.milestones}
-              onCheckedChange={() => handleToggle("milestones")}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="pulse-check" className="text-base">
-                Weekly Pulse Check
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                Reminders to complete weekly team pulse check
-              </p>
-            </div>
-            <Switch
-              id="pulse-check"
-              checked={preferences.pulseCheck}
-              onCheckedChange={() => handleToggle("pulseCheck")}
-            />
-          </div>
-
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <Label htmlFor="achievement-suggestions" className="text-base">
-                Achievement Suggestions
-              </Label>
-              <p className="text-sm text-muted-foreground">
-                AI-suggested achievements for self-reflection
-              </p>
-            </div>
-            <Switch
-              id="achievement-suggestions"
-              checked={preferences.achievementSuggestions}
-              onCheckedChange={() => handleToggle("achievementSuggestions")}
-            />
-          </div>
+          ))}
         </CardContent>
       </Card>
 
@@ -157,14 +194,12 @@ export default function NotificationPreferences() {
             <Zap className="h-5 w-5" />
             Browser Push Notifications
           </CardTitle>
-          <CardDescription>
-            Receive notifications even when APEX is not open
-          </CardDescription>
+          <CardDescription>Receive notifications even when APEX is not open</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label htmlFor="browser-push" className="text-base">
+              <Label htmlFor="browser-push" className="text-base cursor-pointer">
                 Enable Browser Push
               </Label>
               <p className="text-sm text-muted-foreground">
@@ -173,8 +208,8 @@ export default function NotificationPreferences() {
             </div>
             <Switch
               id="browser-push"
-              checked={preferences.browserPush}
-              onCheckedChange={() => handleToggle("browserPush")}
+              checked={prefs.notifyBrowserPush}
+              onCheckedChange={() => toggle("notifyBrowserPush")}
             />
           </div>
         </CardContent>
@@ -186,19 +221,15 @@ export default function NotificationPreferences() {
             <Clock className="h-5 w-5" />
             Quiet Hours
           </CardTitle>
-          <CardDescription>
-            Set times when you don't want to receive notifications
-          </CardDescription>
+          <CardDescription>Set times when you don't want to receive notifications</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="quiet-start">Start Time</Label>
               <Select
-                value={preferences.quietHoursStart}
-                onValueChange={(value) =>
-                  setPreferences((prev) => ({ ...prev, quietHoursStart: value }))
-                }
+                value={prefs.quietHoursStart}
+                onValueChange={(v) => setField("quietHoursStart", v)}
               >
                 <SelectTrigger id="quiet-start">
                   <SelectValue />
@@ -219,10 +250,8 @@ export default function NotificationPreferences() {
             <div className="space-y-2">
               <Label htmlFor="quiet-end">End Time</Label>
               <Select
-                value={preferences.quietHoursEnd}
-                onValueChange={(value) =>
-                  setPreferences((prev) => ({ ...prev, quietHoursEnd: value }))
-                }
+                value={prefs.quietHoursEnd}
+                onValueChange={(v) => setField("quietHoursEnd", v)}
               >
                 <SelectTrigger id="quiet-end">
                   <SelectValue />
@@ -244,10 +273,8 @@ export default function NotificationPreferences() {
           <div className="space-y-2">
             <Label htmlFor="max-per-day">Maximum Priority Notifications Per Day</Label>
             <Select
-              value={preferences.maxPerDay}
-              onValueChange={(value) =>
-                setPreferences((prev) => ({ ...prev, maxPerDay: value }))
-              }
+              value={String(prefs.maxNotificationsPerDay)}
+              onValueChange={(v) => setField("maxNotificationsPerDay", parseInt(v, 10))}
             >
               <SelectTrigger id="max-per-day">
                 <SelectValue />
@@ -265,8 +292,19 @@ export default function NotificationPreferences() {
       </Card>
 
       <div className="flex justify-end">
-        <Button onClick={handleSave} size="lg">
-          Save Preferences
+        <Button
+          onClick={handleSave}
+          size="lg"
+          disabled={savePrefs.isPending || !dirty}
+        >
+          {savePrefs.isPending ? (
+            "Saving…"
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-2" />
+              Save Preferences
+            </>
+          )}
         </Button>
       </div>
     </div>

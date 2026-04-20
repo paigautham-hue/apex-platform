@@ -32,7 +32,10 @@ import {
   companyReflections, InsertCompanyReflection,
   chairmanGuidance, InsertChairmanGuidance,
   dependencyChains, InsertDependencyChain,
-  aiInsights, InsertAiInsight
+  aiInsights, InsertAiInsight,
+  accessGrants, InsertAccessGrant,
+  accessChallenges, InsertAccessChallenge,
+  userPreferences, InsertUserPreferences
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
@@ -1284,4 +1287,115 @@ export async function getAiInsightsByTarget(
       eq(aiInsights.targetId, targetId)
     ))
     .orderBy(desc(aiInsights.createdAt));
+}
+
+// ============================================================================
+// ACCESS GRANTS
+// ============================================================================
+
+export async function getAccessGrantsByTenant(tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(accessGrants)
+    .where(eq(accessGrants.tenantId, tenantId))
+    .orderBy(desc(accessGrants.createdAt));
+}
+
+export async function getAccessGrantsByUser(userId: number, tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(accessGrants)
+    .where(and(eq(accessGrants.tenantId, tenantId), eq(accessGrants.grantedByUserId, userId)))
+    .orderBy(desc(accessGrants.createdAt));
+}
+
+export async function createAccessGrant(data: InsertAccessGrant) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(accessGrants).values(data);
+  return result;
+}
+
+export async function revokeAccessGrant(id: number, revokedByUserId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(accessGrants)
+    .set({ status: "REVOKED", revokedAt: new Date(), revokedByUserId })
+    .where(eq(accessGrants.id, id));
+}
+
+export async function getAccessGrantById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [grant] = await db.select().from(accessGrants).where(eq(accessGrants.id, id));
+  return grant ?? null;
+}
+
+// ============================================================================
+// ACCESS CHALLENGES
+// ============================================================================
+
+export async function getAccessChallengesByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(accessChallenges)
+    .where(eq(accessChallenges.submittedByUserId, userId))
+    .orderBy(desc(accessChallenges.createdAt));
+}
+
+export async function getAccessChallengesByTenant(tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db.select().from(accessChallenges)
+    .where(eq(accessChallenges.tenantId, tenantId))
+    .orderBy(desc(accessChallenges.createdAt));
+}
+
+export async function createAccessChallenge(data: InsertAccessChallenge) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(accessChallenges).values(data);
+  return result;
+}
+
+export async function resolveAccessChallenge(id: number, resolvedByUserId: number, resolution: string, status: "RESOLVED" | "DISMISSED") {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(accessChallenges)
+    .set({ status, resolution, resolvedByUserId, resolvedAt: new Date() })
+    .where(eq(accessChallenges.id, id));
+}
+
+// ============================================================================
+// USER PREFERENCES
+// ============================================================================
+
+export async function getUserPreferences(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [prefs] = await db.select().from(userPreferences).where(eq(userPreferences.userId, userId));
+  return prefs ?? null;
+}
+
+export async function upsertUserPreferences(userId: number, data: Partial<InsertUserPreferences>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await getUserPreferences(userId);
+  if (existing) {
+    await db.update(userPreferences)
+      .set({ ...data, updatedAt: new Date() })
+      .where(eq(userPreferences.userId, userId));
+  } else {
+    await db.insert(userPreferences).values({ userId, ...data } as InsertUserPreferences);
+  }
+  return await getUserPreferences(userId);
+}
+
+export async function markOnboardingComplete(userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await upsertUserPreferences(userId, {
+    onboardingCompleted: true,
+    onboardingCompletedAt: new Date(),
+  });
 }

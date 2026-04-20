@@ -34,12 +34,16 @@ import ChairmanAssess from "./pages/ChairmanAssess";
 import GovernanceAdmin from "./pages/GovernanceAdmin";
 import ThreeSixty from "./pages/ThreeSixty";
 import FinancialCockpit from "./pages/FinancialCockpit";
+import Onboarding from "./pages/Onboarding";
 
 function Router() {
   return (
     <Switch>
       {/* Public landing page */}
       <Route path="/" component={Home} />
+      
+      {/* Onboarding wizard - full screen, no sidebar */}
+      <Route path="/onboarding" component={Onboarding} />
       
       {/* Dashboard routes - wrapped in DashboardLayout */}
       <Route path="/today">

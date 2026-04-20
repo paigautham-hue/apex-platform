@@ -1,4 +1,5 @@
 import { useAuth } from "@/_core/hooks/useAuth";
+import { trpc } from "@/lib/trpc";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -64,12 +65,25 @@ export default function DashboardLayout({
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
   const { loading, user } = useAuth();
+  const [, navigate] = useLocation();
+
+  // Check if onboarding is needed
+  const { data: onboardingStatus, isLoading: onboardingLoading } = trpc.preferences.checkOnboarding.useQuery(
+    undefined,
+    { enabled: !!user }
+  );
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
   }, [sidebarWidth]);
 
-  if (loading) {
+  useEffect(() => {
+    if (user && !onboardingLoading && onboardingStatus && !onboardingStatus.completed) {
+      navigate("/onboarding");
+    }
+  }, [user, onboardingLoading, onboardingStatus, navigate]);
+
+  if (loading || (user && onboardingLoading)) {
     return <DashboardLayoutSkeleton />
   }
 

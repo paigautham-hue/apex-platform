@@ -812,3 +812,90 @@ export type InsertDependencyChain = typeof dependencyChains.$inferInsert;
 
 export type AiInsight = typeof aiInsights.$inferSelect;
 export type InsertAiInsight = typeof aiInsights.$inferInsert;
+
+// ============================================================================
+// ACCESS CONTROL — CROSS-COMPANY GRANTS & CHALLENGES
+// ============================================================================
+
+export const accessGrants = mysqlTable("accessGrants", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  grantedByUserId: int("grantedByUserId").notNull(),
+  grantedToUserId: int("grantedToUserId"),
+  grantedToEmail: varchar("grantedToEmail", { length: 320 }).notNull(),
+  targetOrgUnitId: int("targetOrgUnitId").notNull(),
+  accessLevel: mysqlEnum("accessLevel", ["VIEW_ONLY", "VIEW_AND_COMMENT", "FULL_ACCESS"]).notNull(),
+  justification: text("justification"),
+  expiresAt: timestamp("expiresAt").notNull(),
+  status: mysqlEnum("status", ["ACTIVE", "EXPIRED", "REVOKED"]).default("ACTIVE").notNull(),
+  revokedAt: timestamp("revokedAt"),
+  revokedByUserId: int("revokedByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("accessGrants_tenantId_idx").on(table.tenantId),
+  grantedByIdx: index("accessGrants_grantedByUserId_idx").on(table.grantedByUserId),
+  statusIdx: index("accessGrants_status_idx").on(table.status),
+}));
+
+export const accessChallenges = mysqlTable("accessChallenges", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  submittedByUserId: int("submittedByUserId").notNull(),
+  challengeType: mysqlEnum("challengeType", [
+    "UNAUTHORIZED_ACCESS",
+    "INCORRECT_VISIBILITY",
+    "MISSING_ACCESS",
+    "DATA_ACCURACY",
+    "PRIVACY_CONCERN",
+    "OTHER",
+  ]).notNull(),
+  description: text("description").notNull(),
+  relatedGrantId: int("relatedGrantId"),
+  status: mysqlEnum("status", ["PENDING", "UNDER_REVIEW", "RESOLVED", "DISMISSED"]).default("PENDING").notNull(),
+  resolution: text("resolution"),
+  resolvedByUserId: int("resolvedByUserId"),
+  resolvedAt: timestamp("resolvedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("accessChallenges_tenantId_idx").on(table.tenantId),
+  submittedByIdx: index("accessChallenges_submittedByUserId_idx").on(table.submittedByUserId),
+  statusIdx: index("accessChallenges_status_idx").on(table.status),
+}));
+
+export type AccessGrant = typeof accessGrants.$inferSelect;
+export type InsertAccessGrant = typeof accessGrants.$inferInsert;
+export type AccessChallenge = typeof accessChallenges.$inferSelect;
+export type InsertAccessChallenge = typeof accessChallenges.$inferInsert;
+
+// ============================================================================
+// USER PREFERENCES
+// ============================================================================
+
+export const userPreferences = mysqlTable("userPreferences", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(),
+  // Notification toggles
+  notifyPriorityZero: boolean("notifyPriorityZero").default(true).notNull(),
+  notifyInsights: boolean("notifyInsights").default(true).notNull(),
+  notifyReminders: boolean("notifyReminders").default(true).notNull(),
+  notifyMilestones: boolean("notifyMilestones").default(true).notNull(),
+  notifyPulseCheck: boolean("notifyPulseCheck").default(true).notNull(),
+  notifyAchievementSuggestions: boolean("notifyAchievementSuggestions").default(true).notNull(),
+  notifyBrowserPush: boolean("notifyBrowserPush").default(false).notNull(),
+  // Quiet hours
+  quietHoursStart: varchar("quietHoursStart", { length: 5 }).default("22:00").notNull(),
+  quietHoursEnd: varchar("quietHoursEnd", { length: 5 }).default("08:00").notNull(),
+  maxNotificationsPerDay: int("maxNotificationsPerDay").default(3).notNull(),
+  // Onboarding
+  onboardingCompleted: boolean("onboardingCompleted").default(false).notNull(),
+  onboardingCompletedAt: timestamp("onboardingCompletedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  userIdx: index("userPreferences_userId_idx").on(table.userId),
+}));
+
+export type UserPreferences = typeof userPreferences.$inferSelect;
+export type InsertUserPreferences = typeof userPreferences.$inferInsert;

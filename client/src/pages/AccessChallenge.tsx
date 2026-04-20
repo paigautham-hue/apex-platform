@@ -4,33 +4,71 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
-import { AlertTriangle, Shield } from "lucide-react";
+import { AlertTriangle, Shield, CheckCircle, Clock, XCircle } from "lucide-react";
 import { VoiceInput } from "@/components/VoiceInput";
+import { trpc } from "@/lib/trpc";
+
+const TENANT_ID = 1;
+
+const CHALLENGE_TYPE_LABELS: Record<string, string> = {
+  UNAUTHORIZED_ACCESS: "Unauthorized Access",
+  INCORRECT_VISIBILITY: "Incorrect Visibility",
+  MISSING_ACCESS: "Missing Access",
+  DATA_ACCURACY: "Data Accuracy",
+  PRIVACY_CONCERN: "Privacy Concern",
+  OTHER: "Other",
+};
+
+const STATUS_ICONS: Record<string, React.ReactNode> = {
+  PENDING: <Clock className="h-4 w-4" />,
+  UNDER_REVIEW: <Clock className="h-4 w-4 text-yellow-500" />,
+  RESOLVED: <CheckCircle className="h-4 w-4 text-green-500" />,
+  DISMISSED: <XCircle className="h-4 w-4 text-muted-foreground" />,
+};
+
+const STATUS_VARIANT: Record<string, "default" | "secondary" | "outline" | "destructive"> = {
+  PENDING: "outline",
+  UNDER_REVIEW: "secondary",
+  RESOLVED: "default",
+  DISMISSED: "secondary",
+};
 
 export default function AccessChallenge() {
-  const [challengeType, setChallengeType] = useState<string>("");
+  const utils = trpc.useUtils();
+  const [challengeType, setChallengeType] = useState<
+    "UNAUTHORIZED_ACCESS" | "INCORRECT_VISIBILITY" | "MISSING_ACCESS" | "DATA_ACCURACY" | "PRIVACY_CONCERN" | "OTHER" | ""
+  >("");
   const [description, setDescription] = useState("");
-  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = async () => {
+  const { data: myChallenges, isLoading } = trpc.accessControl.listMyChallenges.useQuery();
+
+  const submitChallenge = trpc.accessControl.submitChallenge.useMutation({
+    onSuccess: () => {
+      toast.success("Access challenge submitted. Group CHRO will review within 2 business days.");
+      setChallengeType("");
+      setDescription("");
+      utils.accessControl.listMyChallenges.invalidate();
+    },
+    onError: (err) => toast.error(err.message),
+  });
+
+  const handleSubmit = () => {
     if (!challengeType || !description.trim()) {
       toast.error("Please fill in all fields");
       return;
     }
-
-    setSubmitting(true);
-    try {
-      // TODO: Submit via tRPC
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      toast.success("Access challenge submitted successfully. CHRO will review within 2 business days.");
-      setChallengeType("");
-      setDescription("");
-    } catch (error) {
-      toast.error("Failed to submit challenge");
-    } finally {
-      setSubmitting(false);
+    if (description.trim().length < 10) {
+      toast.error("Description must be at least 10 characters");
+      return;
     }
+    submitChallenge.mutate({
+      tenantId: TENANT_ID,
+      challengeType,
+      description: description.trim(),
+    });
   };
 
   return (
@@ -45,11 +83,11 @@ export default function AccessChallenge() {
         </p>
       </div>
 
-      <Card className="border-warning">
+      <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-warning" />
-            Access Challenge Workflow
+            <AlertTriangle className="h-5 w-5 text-yellow-500" />
+            Submit an Access Challenge
           </CardTitle>
           <CardDescription>
             All access challenges are reviewed by Group CHRO within 2 business days
@@ -57,54 +95,54 @@ export default function AccessChallenge() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="challenge-type">Challenge Type</Label>
-            <Select value={challengeType} onValueChange={setChallengeType}>
+            <Label htmlFor="challenge-type">Challenge Type <span className="text-destructive">*</span></Label>
+            <Select
+              value={challengeType}
+              onValueChange={(v) => setChallengeType(v as typeof challengeType)}
+            >
               <SelectTrigger id="challenge-type">
                 <SelectValue placeholder="Select challenge type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="unauthorized-access">
-                  Unauthorized Access - Someone viewed my profile without permission
+                <SelectItem value="UNAUTHORIZED_ACCESS">
+                  Unauthorized Access — Someone viewed my profile without permission
                 </SelectItem>
-                <SelectItem value="incorrect-visibility">
-                  Incorrect Visibility - I can see data I shouldn't have access to
+                <SelectItem value="INCORRECT_VISIBILITY">
+                  Incorrect Visibility — I can see data I shouldn't have access to
                 </SelectItem>
-                <SelectItem value="missing-access">
-                  Missing Access - I should have access but don't
+                <SelectItem value="MISSING_ACCESS">
+                  Missing Access — I should have access but don't
                 </SelectItem>
-                <SelectItem value="data-accuracy">
-                  Data Accuracy - Information about me is incorrect
+                <SelectItem value="DATA_ACCURACY">
+                  Data Accuracy — Information about me is incorrect
                 </SelectItem>
-                <SelectItem value="privacy-concern">
-                  Privacy Concern - Sensitive information is too widely visible
+                <SelectItem value="PRIVACY_CONCERN">
+                  Privacy Concern — Sensitive information is too widely visible
                 </SelectItem>
-                <SelectItem value="other">
-                  Other - Describe in detail below
+                <SelectItem value="OTHER">
+                  Other — Describe in detail below
                 </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Description</Label>
-            <div className="flex gap-2">
+            <Label htmlFor="description">Description <span className="text-destructive">*</span></Label>
+            <div className="flex gap-2 items-start">
               <Textarea
                 id="description"
-                placeholder="Provide detailed information about the access issue, including:
-- What data or profile is involved
-- Who has inappropriate access (if known)
-- Why you believe this access is incorrect
-- Any supporting evidence or context"
+                placeholder={`Provide detailed information about the access issue, including:\n- What data or profile is involved\n- Who has inappropriate access (if known)\n- Why you believe this access is incorrect\n- Any supporting evidence or context`}
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={8}
                 className="resize-none flex-1"
               />
               <VoiceInput
-                onTranscript={(text) => setDescription(prev => prev ? `${prev} ${text}` : text)}
+                onTranscript={(text) => setDescription((prev) => (prev ? `${prev} ${text}` : text))}
                 buttonVariant="outline"
               />
             </div>
+            <p className="text-xs text-muted-foreground">{description.length} characters (minimum 10)</p>
           </div>
 
           <div className="bg-muted p-4 rounded-lg space-y-2">
@@ -126,10 +164,13 @@ export default function AccessChallenge() {
                 setDescription("");
               }}
             >
-              Cancel
+              Clear
             </Button>
-            <Button onClick={handleSubmit} disabled={submitting}>
-              {submitting ? "Submitting..." : "Submit Challenge"}
+            <Button
+              onClick={handleSubmit}
+              disabled={submitChallenge.isPending || !challengeType || description.trim().length < 10}
+            >
+              {submitChallenge.isPending ? "Submitting…" : "Submit Challenge"}
             </Button>
           </div>
         </CardContent>
@@ -137,15 +178,46 @@ export default function AccessChallenge() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Access Challenges</CardTitle>
-          <CardDescription>
-            View the status of your previously submitted challenges
-          </CardDescription>
+          <CardTitle>My Access Challenges</CardTitle>
+          <CardDescription>View the status of your previously submitted challenges</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="text-center py-8 text-muted-foreground">
-            No access challenges submitted yet
-          </div>
+          {isLoading ? (
+            <div className="space-y-3">
+              {[1, 2].map((i) => (
+                <Skeleton key={i} className="h-20 w-full" />
+              ))}
+            </div>
+          ) : !myChallenges || myChallenges.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Shield className="h-10 w-10 mx-auto mb-3 opacity-30" />
+              <p>No access challenges submitted yet</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {myChallenges.map((c) => (
+                <div key={c.id} className="p-4 border rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {STATUS_ICONS[c.status]}
+                      <span className="font-medium">{CHALLENGE_TYPE_LABELS[c.challengeType] ?? c.challengeType}</span>
+                    </div>
+                    <Badge variant={STATUS_VARIANT[c.status] ?? "outline"}>{c.status.replace("_", " ")}</Badge>
+                  </div>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{c.description}</p>
+                  {c.resolution && (
+                    <div className="bg-muted p-3 rounded text-sm">
+                      <span className="font-medium">Resolution: </span>
+                      {c.resolution}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    Submitted {new Date(c.createdAt).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

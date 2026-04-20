@@ -5,6 +5,8 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
 import { processAskQuery, getSuggestedQueries } from "./ai-ask";
+import { accessControlRouter } from "./routers/accessControl";
+import { preferencesRouter } from "./routers/preferences";
 import { processUploadedFile } from "./ai-extraction";
 import * as db from "./db";
 import * as governanceNotifications from "./governance-notifications";
@@ -1458,6 +1460,10 @@ export const appRouter = router({
   }),
   
   // AI Ask router
+  // Access Control & Preferences
+  accessControl: accessControlRouter,
+  preferences: preferencesRouter,
+
   ask: router({
     query: protectedProcedure
       .input(z.object({
