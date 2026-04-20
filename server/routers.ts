@@ -8,6 +8,8 @@ import { processAskQuery, getSuggestedQueries } from "./ai-ask";
 import { processUploadedFile } from "./ai-extraction";
 import * as db from "./db";
 import * as governanceNotifications from "./governance-notifications";
+import { runCommitmentTrackerForCycle, findChronicDeferralsForTenant } from "./ai-commitment";
+import { generateAllInsights } from "./ai-insights-generator";
 import { CORE_VALUES, OBSERVATION_TEMPLATES, getDataSufficiencyLevel } from "../shared/constants";
 
 // ============================================================================
@@ -1269,6 +1271,29 @@ const governanceRouter = router({
     .input(z.object({ tenantId: z.number(), cycleId: z.number() }))
     .query(async ({ input }) => {
       return await db.getAiInsightsByCycle(input.cycleId, input.tenantId);
+    }),
+
+  // --- AI jobs (Phase 4.2 + 4.3) ---
+  runCommitmentTracker: protectedProcedure
+    .input(z.object({ tenantId: z.number(), cycleId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const ok = await db.isChairmanOrAdmin(ctx.user.id, input.tenantId);
+      if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: "Chairman/Admin only." });
+      return await runCommitmentTrackerForCycle(input.tenantId, input.cycleId);
+    }),
+
+  listChronicDeferrals: protectedProcedure
+    .input(z.object({ tenantId: z.number(), lookbackCycles: z.number().int().min(2).max(12).default(3) }))
+    .query(async ({ input }) => {
+      return await findChronicDeferralsForTenant(input.tenantId, input.lookbackCycles);
+    }),
+
+  runInsightGeneration: protectedProcedure
+    .input(z.object({ tenantId: z.number(), cycleId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const ok = await db.isChairmanOrAdmin(ctx.user.id, input.tenantId);
+      if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: "Chairman/Admin only." });
+      return await generateAllInsights(input.tenantId, input.cycleId);
     }),
 
   listInsightsForTarget: protectedProcedure

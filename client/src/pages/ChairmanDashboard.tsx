@@ -12,7 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Activity, AlertTriangle, Anchor, Link2, Ship, TrendingUp } from "lucide-react";
+import { Activity, AlertTriangle, Anchor, Brain, Link2, RotateCw, Ship, TrendingUp } from "lucide-react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
@@ -80,6 +80,24 @@ export default function ChairmanDashboard() {
     onSuccess: () => toast.success("Cycle status updated"),
     onError: (e) => toast.error(e.message),
   });
+
+  const runCommitmentTracker = trpc.governance.runCommitmentTracker.useMutation({
+    onSuccess: (res) => toast.success(`Commitment tracker: scanned ${res.scanned}, updated ${res.updated}`),
+    onError: (e) => toast.error(e.message),
+  });
+
+  const runInsightGeneration = trpc.governance.runInsightGeneration.useMutation({
+    onSuccess: (res) =>
+      toast.success(
+        `Insights: ${res.total} (perception ${res.perception}, commitment ${res.commitment}, engagement ${res.engagement}, chain ${res.chain}, financial ${res.financial})`,
+      ),
+    onError: (e) => toast.error(e.message),
+  });
+
+  const { data: chronicDeferrals } = trpc.governance.listChronicDeferrals.useQuery(
+    { tenantId: TENANT_ID, lookbackCycles: 3 },
+    { enabled: !!activeCycle },
+  );
 
   const selfType = feedbackTypes?.find((t) => t.key === "self");
   const chairmanType = feedbackTypes?.find((t) => t.key === "chairman");
@@ -256,7 +274,25 @@ export default function ChairmanDashboard() {
             <Badge>{activeCycle.status}</Badge>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => runCommitmentTracker.mutate({ tenantId: TENANT_ID, cycleId: activeCycle.id })}
+            disabled={runCommitmentTracker.isPending}
+          >
+            <RotateCw className={runCommitmentTracker.isPending ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+            Run Commitment Tracker
+          </Button>
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() => runInsightGeneration.mutate({ tenantId: TENANT_ID, cycleId: activeCycle.id })}
+            disabled={runInsightGeneration.isPending}
+          >
+            <Brain className={runInsightGeneration.isPending ? "h-4 w-4 animate-spin" : "h-4 w-4"} />
+            Generate Insights
+          </Button>
           {activeCycle.status === "OPEN" && (
             <Button
               variant="outline"
@@ -551,6 +587,45 @@ export default function ChairmanDashboard() {
           })}
         </CardContent>
       </Card>
+
+      {/* Chronic Deferrals */}
+      {chronicDeferrals && chronicDeferrals.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4" />
+              Chronic Deferrals
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Person</TableHead>
+                  <TableHead>Mandate</TableHead>
+                  <TableHead>Commitment</TableHead>
+                  <TableHead className="text-right">Cycles</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {chronicDeferrals.slice(0, 15).map((c, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="text-sm font-medium">{c.personName}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{c.dimensionKey}</TableCell>
+                    <TableCell className="text-sm">{c.item}</TableCell>
+                    <TableCell className="text-right">
+                      <Badge variant="destructive">{c.cycleIds.length}</Badge>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+            <p className="text-xs text-muted-foreground mt-3">
+              Items that have appeared on a plan across 3+ consecutive cycles without completion.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {/* AI Insights */}
       {insights && insights.length > 0 && (
