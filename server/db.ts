@@ -1101,6 +1101,34 @@ export async function getAiInsightsByCycle(cycleId: number, tenantId: number) {
     .orderBy(desc(aiInsights.severity), desc(aiInsights.createdAt));
 }
 
+// ============================================================================
+// FINANCIAL COCKPIT SUMMARY
+// ============================================================================
+
+// Returns flat financial metric rows for the tenant. Client aggregates by
+// (orgUnit, metric name, period). Joins plans -> metrics -> metricValues
+// filtered to category = FINANCIAL.
+export async function getFinancialSummariesByTenant(tenantId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return await db
+    .select({
+      orgUnitId: plans.orgUnitId,
+      planId: plans.id,
+      metricId: metrics.id,
+      metricName: metrics.name,
+      actualValue: metricValues.actualValue,
+      targetValue: metricValues.targetValue,
+      periodDate: metricValues.periodDate,
+      periodType: metricValues.periodType,
+      fiscalYear: plans.name,
+    })
+    .from(metricValues)
+    .innerJoin(metrics, eq(metricValues.metricId, metrics.id))
+    .innerJoin(plans, eq(metrics.planId, plans.id))
+    .where(and(eq(plans.tenantId, tenantId), eq(plans.category, "FINANCIAL")));
+}
+
 export async function getAiInsightsByTarget(
   targetType: "ROLE" | "COMPANY" | "CHAIN" | "FUND",
   targetId: number,

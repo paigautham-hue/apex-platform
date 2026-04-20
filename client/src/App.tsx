@@ -30,6 +30,7 @@ import AccessGrants from "./pages/AccessGrants";
 import MyBridge from "./pages/MyBridge";
 import MyIsland from "./pages/MyIsland";
 import ChairmanDashboard from "./pages/ChairmanDashboard";
+import FinancialCockpit from "./pages/FinancialCockpit";
 
 function Router() {
   return (
@@ -59,6 +60,12 @@ function Router() {
       <Route path="/chairman">
         <DashboardLayout>
           <ChairmanDashboard />
+        </DashboardLayout>
+      </Route>
+
+      <Route path="/financial-cockpit">
+        <DashboardLayout>
+          <FinancialCockpit />
         </DashboardLayout>
       </Route>
       

@@ -973,6 +973,13 @@ const governanceRouter = router({
       return await db.getDependencyChainsByTenant(input.tenantId);
     }),
 
+  // --- Financial summaries (for cockpit) ---
+  listFinancialSummaries: protectedProcedure
+    .input(z.object({ tenantId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getFinancialSummariesByTenant(input.tenantId);
+    }),
+
   // --- Roles (helper for chairman dashboard) ---
   listRoles: protectedProcedure
     .input(z.object({ tenantId: z.number() }))
