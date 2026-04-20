@@ -715,6 +715,8 @@ const governanceRouter = router({
       deadlineDate: z.date().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
+      const ok = await db.isChairmanOrAdmin(ctx.user.id, input.tenantId);
+      if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: "Only the Chairman or Admin can create cycles." });
       await db.createGovernanceCycle({
         tenantId: input.tenantId,
         month: input.month,
@@ -732,9 +734,18 @@ const governanceRouter = router({
       tenantId: z.number(),
       status: z.enum(["DRAFT", "OPEN", "CLOSED", "REVEALED"]),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
+      const ok = await db.isChairmanOrAdmin(ctx.user.id, input.tenantId);
+      if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: "Only the Chairman or Admin can change cycle state." });
       await db.updateGovernanceCycleStatus(input.cycleId, input.status, input.tenantId);
       return { success: true };
+    }),
+
+  // Am I allowed to act as the Chairman? Cheap client-side gate.
+  amIChairman: protectedProcedure
+    .input(z.object({ tenantId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      return await db.isChairmanOrAdmin(ctx.user.id, input.tenantId);
     }),
 
   // --- Feedback types ---
@@ -935,6 +946,8 @@ const governanceRouter = router({
       guidanceText: z.string().min(1),
     }))
     .mutation(async ({ input, ctx }) => {
+      const ok = await db.isChairmanOrAdmin(ctx.user.id, input.tenantId);
+      if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: "Only the Chairman or Admin can write guidance." });
       const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
       if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person profile not found" });
 

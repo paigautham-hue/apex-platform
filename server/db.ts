@@ -245,6 +245,29 @@ export async function getRolesByTenant(tenantId: number) {
     .where(and(eq(roles.tenantId, tenantId), eq(roles.isActive, true)));
 }
 
+// Returns true when the given user has a CHAIRMAN / GROUP_CEO role in the
+// tenant, OR when the backing users row has role = admin. Used as the
+// write-side guard on governance endpoints (open/close cycle, guidance).
+export async function isChairmanOrAdmin(userId: number, tenantId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+
+  const userRow = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+  if (userRow.length > 0 && userRow[0].role === "admin") return true;
+
+  const person = await db
+    .select()
+    .from(persons)
+    .where(and(eq(persons.tenantId, tenantId), eq(persons.userId, userId)))
+    .limit(1);
+  if (person.length === 0) return false;
+  if (!person[0].currentRoleId) return false;
+
+  const role = await db.select().from(roles).where(eq(roles.id, person[0].currentRoleId)).limit(1);
+  if (role.length === 0) return false;
+  return role[0].roleType === "CHAIRMAN" || role[0].roleType === "GROUP_CEO";
+}
+
 export async function getActiveRoleByPerson(personId: number) {
   const db = await getDb();
   if (!db) return undefined;
