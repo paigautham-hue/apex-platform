@@ -28,6 +28,7 @@ import NotificationPreferences from "./pages/NotificationPreferences";
 import AccessChallenge from "./pages/AccessChallenge";
 import AccessGrants from "./pages/AccessGrants";
 import MyBridge from "./pages/MyBridge";
+import MyIsland from "./pages/MyIsland";
 
 function Router() {
   return (
@@ -45,6 +46,12 @@ function Router() {
       <Route path="/my-bridge">
         <DashboardLayout>
           <MyBridge />
+        </DashboardLayout>
+      </Route>
+
+      <Route path="/my-island">
+        <DashboardLayout>
+          <MyIsland />
         </DashboardLayout>
       </Route>
       
