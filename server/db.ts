@@ -982,6 +982,19 @@ export async function getMandateJournalsByPersonAndCycle(
     ));
 }
 
+export async function updateJournalPlanItems(
+  journalId: number,
+  planItems: Array<{ item: string; completedNextMonth: boolean | null }>,
+  tenantId: number,
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return await db
+    .update(mandateJournals)
+    .set({ planItems })
+    .where(and(eq(mandateJournals.id, journalId), eq(mandateJournals.tenantId, tenantId)));
+}
+
 export async function getLastMandateJournal(
   personId: number,
   dimensionKey: string,

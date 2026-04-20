@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Slider } from "@/components/ui/slider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Separator } from "@/components/ui/separator";
-import { Compass, Lock, MessageSquare, Palmtree, Send, Target } from "lucide-react";
+import { Compass, History, Lock, MessageSquare, Palmtree, Send, Target } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -64,8 +65,17 @@ function ragColor(rag: "RED" | "AMBER" | "GREEN" | null) {
 export default function MyIsland() {
   const { data: profile } = trpc.person.getMyProfile.useQuery();
   const { data: activeCycle } = trpc.governance.getActiveCycle.useQuery({ tenantId: TENANT_ID });
+  const { data: cycles } = trpc.governance.listCycles.useQuery({ tenantId: TENANT_ID });
   const { data: feedbackTypes } = trpc.governance.listFeedbackTypes.useQuery({ tenantId: TENANT_ID });
   const { data: orgUnits } = trpc.tenant.listOrgUnits.useQuery({ tenantId: TENANT_ID });
+
+  const priorCycleId = useMemo(() => {
+    if (!activeCycle || !cycles) return 0;
+    const earlier = cycles
+      .filter((c) => c.month < activeCycle.month)
+      .sort((a, b) => b.month.localeCompare(a.month));
+    return earlier[0]?.id ?? 0;
+  }, [activeCycle?.month, cycles]);
 
   const cycleId = activeCycle?.id ?? 0;
   const orgUnitId = profile?.currentRole?.orgUnitId ?? 0;
@@ -84,6 +94,16 @@ export default function MyIsland() {
       { tenantId: TENANT_ID, cycleId },
       { enabled: cycleId > 0 },
     );
+
+  const { data: priorJournals, refetch: refetchPriorJournals } =
+    trpc.governance.getMyJournals.useQuery(
+      { tenantId: TENANT_ID, cycleId: priorCycleId },
+      { enabled: priorCycleId > 0 },
+    );
+
+  const markPriorPlanItem = trpc.governance.markPriorPlanItem.useMutation({
+    onSuccess: () => refetchPriorJournals(),
+  });
 
   const { data: myAssessments, refetch: refetchAssessments } =
     trpc.governance.getMyAssessments.useQuery(
@@ -331,6 +351,57 @@ export default function MyIsland() {
                   </TabsList>
 
                   <TabsContent value="log" className="space-y-3 pt-3">
+                    {(() => {
+                      const prior = priorJournals?.find((j) => j.dimensionKey === dim);
+                      if (!prior) return null;
+                      const priorItems = (prior.planItems ?? []) as Array<{
+                        item: string;
+                        completedNextMonth: boolean | null;
+                      }>;
+                      return (
+                        <div className="rounded-md border border-dashed p-3 bg-muted/40 space-y-2">
+                          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground">
+                            <History className="h-3 w-3" />
+                            Last cycle's plan
+                          </div>
+                          {prior.planText && (
+                            <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+                              {prior.planText}
+                            </p>
+                          )}
+                          {priorItems.length > 0 && (
+                            <div className="space-y-1 pt-1">
+                              {priorItems.map((it, i) => (
+                                <label key={i} className="flex items-start gap-2 text-sm">
+                                  <Checkbox
+                                    className="mt-0.5"
+                                    checked={it.completedNextMonth === true}
+                                    onCheckedChange={(v) =>
+                                      markPriorPlanItem.mutate({
+                                        tenantId: TENANT_ID,
+                                        dimensionKey: dim,
+                                        priorCycleId,
+                                        itemIndex: i,
+                                        completed: v === true,
+                                      })
+                                    }
+                                  />
+                                  <span
+                                    className={
+                                      it.completedNextMonth === true
+                                        ? "line-through text-muted-foreground"
+                                        : ""
+                                    }
+                                  >
+                                    {it.item}
+                                  </span>
+                                </label>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                     <Label>What happened on this dimension this month</Label>
                     <Textarea
                       rows={5}
@@ -342,6 +413,21 @@ export default function MyIsland() {
                   </TabsContent>
 
                   <TabsContent value="plan" className="space-y-3 pt-3">
+                    {(() => {
+                      const prior = priorJournals?.find((j) => j.dimensionKey === dim);
+                      if (!prior || !prior.logText) return null;
+                      return (
+                        <div className="rounded-md border border-dashed p-3 bg-muted/40">
+                          <div className="flex items-center gap-2 text-xs uppercase tracking-wide text-muted-foreground mb-1">
+                            <History className="h-3 w-3" />
+                            Last cycle's log (for context)
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap text-muted-foreground">
+                            {prior.logText}
+                          </p>
+                        </div>
+                      );
+                    })()}
                     <Label>What we'll focus on next month</Label>
                     <Textarea
                       rows={5}

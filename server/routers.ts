@@ -871,6 +871,36 @@ const governanceRouter = router({
       return await db.getMandateJournalsByPersonAndCycle(person.id, input.cycleId, input.tenantId);
     }),
 
+  markPriorPlanItem: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      dimensionKey: z.string(),
+      priorCycleId: z.number(),
+      itemIndex: z.number().int().min(0),
+      completed: z.boolean(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person profile not found" });
+
+      const journal = await db.getLastMandateJournal(
+        person.id,
+        input.dimensionKey,
+        input.priorCycleId + 1,
+        input.tenantId,
+      );
+      if (!journal) throw new TRPCError({ code: "NOT_FOUND", message: "Prior journal not found" });
+
+      const items = (journal.planItems ?? []) as Array<{ item: string; completedNextMonth: boolean | null }>;
+      if (input.itemIndex >= items.length) throw new TRPCError({ code: "BAD_REQUEST", message: "Item index out of range" });
+
+      const updated = items.map((it, i) =>
+        i === input.itemIndex ? { ...it, completedNextMonth: input.completed } : it,
+      );
+      await db.updateJournalPlanItems(journal.id, updated, input.tenantId);
+      return { success: true };
+    }),
+
   getLastJournal: protectedProcedure
     .input(z.object({
       tenantId: z.number(),
