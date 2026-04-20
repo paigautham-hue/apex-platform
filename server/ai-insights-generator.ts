@@ -80,7 +80,7 @@ export async function generatePerceptionGapInsights(tenantId: number, cycleId: n
   }
 
   let count = 0;
-  for (const [, v] of byKey) {
+  for (const [, v] of Array.from(byKey)) {
     if (v.self?.score == null || v.chairman?.score == null) continue;
     const gap = Math.abs(v.chairman.score - v.self.score);
     if (gap < 2) continue;
@@ -195,19 +195,19 @@ export async function generateFinancialMismatchInsights(tenantId: number, cycleI
   };
 
   let count = 0;
-  for (const [orgUnitId, rows] of byCompany) {
+  for (const [orgUnitId, rows] of Array.from(byCompany)) {
     const annualBudget = rows.find(
-      (r) => r.metricName === "Revenue FY27" && r.periodType === "ANNUAL",
+      (r: typeof summaries[0]) => r.metricName === "Revenue FY27" && r.periodType === "ANNUAL",
     );
     const ytdQuarters = rows.filter(
-      (r) => r.metricName === "Revenue FY27" && r.periodType === "QUARTERLY",
+      (r: typeof summaries[0]) => r.metricName === "Revenue FY27" && r.periodType === "QUARTERLY",
     );
     if (!annualBudget || ytdQuarters.length === 0) continue;
 
     const budget = toNum(annualBudget.targetValue);
     const ytd = ytdQuarters
-      .map((r) => toNum(r.actualValue) ?? 0)
-      .reduce((a, b) => a + b, 0);
+      .map((r: typeof summaries[0]) => toNum(r.actualValue) ?? 0)
+      .reduce((a: number, b: number) => a + b, 0);
     if (!budget || budget <= 0) continue;
     const variancePct = ((ytd - budget) / budget) * 100;
     if (Math.abs(variancePct) < 15) continue;

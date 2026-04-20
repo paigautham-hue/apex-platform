@@ -132,7 +132,7 @@ export default function ThreeSixty() {
     }
 
     // assessor count = distinct assessorPersonId per type
-    for (const [typeId, agg] of map) {
+    for (const [typeId, agg] of Array.from(map)) {
       const distinct = new Set(
         assessments
           .filter((a) => a.feedbackTypeId === typeId && a.score != null)

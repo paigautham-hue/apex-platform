@@ -122,7 +122,7 @@ export default function ChairmanDashboard() {
       chairmanScore: number;
       gap: number;
     }> = [];
-    for (const [, v] of byKey) {
+    for (const [, v] of Array.from(byKey)) {
       if (v.self?.score != null && v.chairman?.score != null) {
         out.push({
           targetType: v.self.targetType,
