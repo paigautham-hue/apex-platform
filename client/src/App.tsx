@@ -27,6 +27,7 @@ import ReviewDraftPreview from "./pages/ReviewDraftPreview";
 import NotificationPreferences from "./pages/NotificationPreferences";
 import AccessChallenge from "./pages/AccessChallenge";
 import AccessGrants from "./pages/AccessGrants";
+import MyBridge from "./pages/MyBridge";
 
 function Router() {
   return (
@@ -38,6 +39,12 @@ function Router() {
       <Route path="/today">
         <DashboardLayout>
           <TodayFeed />
+        </DashboardLayout>
+      </Route>
+
+      <Route path="/my-bridge">
+        <DashboardLayout>
+          <MyBridge />
         </DashboardLayout>
       </Route>
       
