@@ -684,6 +684,314 @@ const constantsRouter = router({
 });
 
 // ============================================================================
+// GOVERNANCE ROUTER (Evergreen Fund monthly cycle, assessments, journals)
+// ============================================================================
+
+const governanceRouter = router({
+  // --- Governance cycles ---
+  listCycles: protectedProcedure
+    .input(z.object({ tenantId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getGovernanceCyclesByTenant(input.tenantId);
+    }),
+
+  getActiveCycle: protectedProcedure
+    .input(z.object({ tenantId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getActiveGovernanceCycle(input.tenantId) ?? null;
+    }),
+
+  getCycleByMonth: protectedProcedure
+    .input(z.object({ tenantId: z.number(), month: z.string() }))
+    .query(async ({ input }) => {
+      return await db.getGovernanceCycleByMonth(input.month, input.tenantId) ?? null;
+    }),
+
+  createCycle: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      month: z.string().regex(/^\d{4}-\d{2}$/),
+      openDate: z.date().optional(),
+      deadlineDate: z.date().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await db.createGovernanceCycle({
+        tenantId: input.tenantId,
+        month: input.month,
+        status: "DRAFT",
+        openDate: input.openDate,
+        deadlineDate: input.deadlineDate,
+        createdBy: ctx.user.id,
+      });
+      return { success: true };
+    }),
+
+  updateCycleStatus: protectedProcedure
+    .input(z.object({
+      cycleId: z.number(),
+      tenantId: z.number(),
+      status: z.enum(["DRAFT", "OPEN", "CLOSED", "REVEALED"]),
+    }))
+    .mutation(async ({ input }) => {
+      await db.updateGovernanceCycleStatus(input.cycleId, input.status, input.tenantId);
+      return { success: true };
+    }),
+
+  // --- Feedback types ---
+  listFeedbackTypes: protectedProcedure
+    .input(z.object({ tenantId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getFeedbackTypesByTenant(input.tenantId);
+    }),
+
+  // --- Assessments ---
+  upsertAssessment: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      cycleId: z.number(),
+      targetType: z.enum(["ROLE", "COMPANY", "CHAIN"]),
+      targetId: z.number(),
+      dimensionKey: z.string(),
+      feedbackTypeId: z.number(),
+      score: z.number().min(1).max(10).nullable(),
+      rag: z.enum(["RED", "AMBER", "GREEN"]).nullable(),
+      note: z.string().nullable(),
+      confidenceNote: z.string().nullable(),
+      submit: z.boolean().default(false),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person profile not found" });
+
+      await db.upsertGovernanceAssessment({
+        tenantId: input.tenantId,
+        cycleId: input.cycleId,
+        assessorPersonId: person.id,
+        targetType: input.targetType,
+        targetId: input.targetId,
+        dimensionKey: input.dimensionKey,
+        feedbackTypeId: input.feedbackTypeId,
+        score: input.score,
+        rag: input.rag,
+        note: input.note,
+        confidenceNote: input.confidenceNote,
+        submittedAt: input.submit ? new Date() : null,
+      });
+      return { success: true };
+    }),
+
+  getMyAssessments: protectedProcedure
+    .input(z.object({ tenantId: z.number(), cycleId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!person) return [];
+      return await db.getAssessmentsByAssessor(person.id, input.cycleId, input.tenantId);
+    }),
+
+  getAssessmentsForTarget: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      cycleId: z.number(),
+      targetType: z.enum(["ROLE", "COMPANY", "CHAIN"]),
+      targetId: z.number(),
+    }))
+    .query(async ({ input }) => {
+      return await db.getAssessmentsForTarget(
+        input.targetType,
+        input.targetId,
+        input.cycleId,
+        input.tenantId,
+      );
+    }),
+
+  // --- Assignments ---
+  getMyAssignments: protectedProcedure
+    .input(z.object({ tenantId: z.number(), cycleId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!person) return [];
+      return await db.getAssignmentsForAssessor(person.id, input.cycleId, input.tenantId);
+    }),
+
+  listAssignments: protectedProcedure
+    .input(z.object({ tenantId: z.number(), cycleId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getAssignmentsByCycle(input.cycleId, input.tenantId);
+    }),
+
+  // --- Mandate journals ---
+  upsertJournal: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      cycleId: z.number(),
+      dimensionKey: z.string(),
+      roleId: z.number().nullable(),
+      orgUnitId: z.number().nullable(),
+      logText: z.string().nullable(),
+      planText: z.string().nullable(),
+      planItems: z.array(z.object({
+        item: z.string(),
+        completedNextMonth: z.boolean().nullable(),
+      })).nullable(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person profile not found" });
+
+      await db.upsertMandateJournal({
+        tenantId: input.tenantId,
+        personId: person.id,
+        cycleId: input.cycleId,
+        dimensionKey: input.dimensionKey,
+        roleId: input.roleId,
+        orgUnitId: input.orgUnitId,
+        logText: input.logText,
+        planText: input.planText,
+        planItems: input.planItems,
+      });
+      return { success: true };
+    }),
+
+  getMyJournals: protectedProcedure
+    .input(z.object({ tenantId: z.number(), cycleId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!person) return [];
+      return await db.getMandateJournalsByPersonAndCycle(person.id, input.cycleId, input.tenantId);
+    }),
+
+  getLastJournal: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      cycleId: z.number(),
+      dimensionKey: z.string(),
+    }))
+    .query(async ({ input, ctx }) => {
+      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!person) return null;
+      const last = await db.getLastMandateJournal(
+        person.id,
+        input.dimensionKey,
+        input.cycleId,
+        input.tenantId,
+      );
+      return last ?? null;
+    }),
+
+  // --- Company reflections ---
+  upsertReflection: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      cycleId: z.number(),
+      orgUnitId: z.number(),
+      wentWell: z.array(z.string()).nullable(),
+      didntGoWell: z.array(z.string()).nullable(),
+      risks: z.array(z.string()).nullable(),
+      needsFromFund: z.array(z.string()).nullable(),
+      forwardCommitments: z.array(z.string()).nullable(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person profile not found" });
+
+      await db.upsertCompanyReflection({
+        tenantId: input.tenantId,
+        ceoPersonId: person.id,
+        orgUnitId: input.orgUnitId,
+        cycleId: input.cycleId,
+        wentWell: input.wentWell,
+        didntGoWell: input.didntGoWell,
+        risks: input.risks,
+        needsFromFund: input.needsFromFund,
+        forwardCommitments: input.forwardCommitments,
+      });
+      return { success: true };
+    }),
+
+  getReflection: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      cycleId: z.number(),
+      orgUnitId: z.number(),
+    }))
+    .query(async ({ input }) => {
+      return await db.getCompanyReflection(input.orgUnitId, input.cycleId, input.tenantId) ?? null;
+    }),
+
+  listReflections: protectedProcedure
+    .input(z.object({ tenantId: z.number(), cycleId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getCompanyReflectionsByCycle(input.cycleId, input.tenantId);
+    }),
+
+  // --- Chairman guidance ---
+  createGuidance: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      cycleId: z.number(),
+      targetType: z.enum(["ROLE", "COMPANY"]),
+      targetId: z.number(),
+      dimensionKey: z.string().nullable(),
+      guidanceText: z.string().min(1),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person profile not found" });
+
+      await db.createChairmanGuidance({
+        tenantId: input.tenantId,
+        cycleId: input.cycleId,
+        chairmanPersonId: person.id,
+        targetType: input.targetType,
+        targetId: input.targetId,
+        dimensionKey: input.dimensionKey,
+        guidanceText: input.guidanceText,
+      });
+      return { success: true };
+    }),
+
+  getGuidanceForTarget: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      cycleId: z.number(),
+      targetType: z.enum(["ROLE", "COMPANY"]),
+      targetId: z.number(),
+    }))
+    .query(async ({ input }) => {
+      return await db.getChairmanGuidanceForTarget(
+        input.targetType,
+        input.targetId,
+        input.cycleId,
+        input.tenantId,
+      );
+    }),
+
+  // --- Dependency chains ---
+  listChains: protectedProcedure
+    .input(z.object({ tenantId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getDependencyChainsByTenant(input.tenantId);
+    }),
+
+  // --- AI insights ---
+  listInsights: protectedProcedure
+    .input(z.object({ tenantId: z.number(), cycleId: z.number() }))
+    .query(async ({ input }) => {
+      return await db.getAiInsightsByCycle(input.cycleId, input.tenantId);
+    }),
+
+  listInsightsForTarget: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      targetType: z.enum(["ROLE", "COMPANY", "CHAIN", "FUND"]),
+      targetId: z.number(),
+    }))
+    .query(async ({ input }) => {
+      return await db.getAiInsightsByTarget(input.targetType, input.targetId, input.tenantId);
+    }),
+});
+
+// ============================================================================
 // MAIN APP ROUTER
 // ============================================================================
 
@@ -715,6 +1023,7 @@ export const appRouter = router({
   financial: financialRouter,
   calibration: calibrationRouter,
   constants: constantsRouter,
+  governance: governanceRouter,
   
   // Review router
   review: router({
