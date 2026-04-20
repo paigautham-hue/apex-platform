@@ -32,6 +32,7 @@ import MyIsland from "./pages/MyIsland";
 import ChairmanDashboard from "./pages/ChairmanDashboard";
 import ChairmanAssess from "./pages/ChairmanAssess";
 import GovernanceAdmin from "./pages/GovernanceAdmin";
+import ThreeSixty from "./pages/ThreeSixty";
 import FinancialCockpit from "./pages/FinancialCockpit";
 
 function Router() {
@@ -74,6 +75,12 @@ function Router() {
       <Route path="/governance-admin">
         <DashboardLayout>
           <GovernanceAdmin />
+        </DashboardLayout>
+      </Route>
+
+      <Route path="/360">
+        <DashboardLayout>
+          <ThreeSixty />
         </DashboardLayout>
       </Route>
 
