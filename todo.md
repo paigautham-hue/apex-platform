@@ -738,3 +738,11 @@
 - [x] Handle duplicate (Sagar appears twice - merged to single record)
 - [x] Verify all 3 owner emails - gpai@msn.com promoted to admin, others will be admin on first login
 - [x] Verify data in database - 22 persons, 17 org units, 22 roles all correct
+
+## Feature: Reporting Structure on PersonProfile
+
+- [x] Add updateReportsTo mutation (update role.reportsToRoleId)
+- [x] Add getReportsTo query (who does this person report to)
+- [x] Update PersonProfile page with "Reports To" field + edit dropdown
+- [x] Show role details (title, type, start date) on PersonProfile
+- [x] Show company/org unit on PersonProfile

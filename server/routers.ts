@@ -144,10 +144,70 @@ const personRouter = router({
       })
     );
 
-    return directReports.filter(r => r !== null);
+     return directReports.filter(r => r !== null);
   }),
-});
 
+  // Update who a person reports to (sets reportsToRoleId on their current role)
+  updateReportsTo: protectedProcedure
+    .input(z.object({
+      tenantId: z.number(),
+      personId: z.number(),
+      reportsToPersonId: z.number().nullable(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Only admins or the person themselves can update reporting structure
+      if (ctx.user.role !== "admin") {
+        const caller = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
+        if (!caller) throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this tenant." });
+      }
+      const dbConn = await db.getDb();
+      if (!dbConn) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      // Get the person's current role
+      const person = await db.getPersonById(input.personId, input.tenantId);
+      if (!person || !person.currentRoleId) throw new TRPCError({ code: "NOT_FOUND", message: "Person or role not found" });
+
+      // Find the reportsTo person's current role id
+      let reportsToRoleId: number | null = null;
+      if (input.reportsToPersonId !== null) {
+        const reportsToP = await db.getPersonById(input.reportsToPersonId, input.tenantId);
+        if (!reportsToP || !reportsToP.currentRoleId) throw new TRPCError({ code: "NOT_FOUND", message: "Reports-to person not found" });
+        reportsToRoleId = reportsToP.currentRoleId;
+      }
+
+      const { roles } = await import("../drizzle/schema");
+      const { eq } = await import("drizzle-orm");
+      await dbConn.update(roles)
+        .set({ reportsToRoleId })
+        .where(eq(roles.id, person.currentRoleId));
+
+      return { success: true };
+    }),
+
+  // Get who a person reports to (returns the manager person record)
+  getReportsTo: protectedProcedure
+    .input(z.object({ personId: z.number(), tenantId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      if (ctx.user.role !== "admin") {
+        const caller = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
+        if (!caller) throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this tenant." });
+      }
+      const person = await db.getPersonById(input.personId, input.tenantId);
+      if (!person || !person.currentRoleId) return null;
+      const role = await db.getRoleById(person.currentRoleId, input.tenantId);
+      if (!role || !role.reportsToRoleId) return null;
+      // Find the person who holds the reportsToRole
+      const dbConn = await db.getDb();
+      if (!dbConn) return null;
+      const { roles, persons: personsTable } = await import("../drizzle/schema");
+      const { eq } = await import("drizzle-orm");
+      const result = await dbConn.select().from(personsTable)
+        .innerJoin(roles, eq(roles.personId, personsTable.id))
+        .where(eq(roles.id, role.reportsToRoleId))
+        .limit(1);
+      return result.length > 0 ? { ...result[0].persons, currentRole: result[0].roles } : null;
+    }),
+});
 // ============================================================================
 // OBSERVATION ROUTER
 // ============================================================================
