@@ -214,6 +214,33 @@ export async function getPersonByUserId(userId: number, tenantId: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+/**
+ * Like getPersonByUserId but also searches by email for admin users who may not
+ * have a person record yet. Returns the first person matching userId OR email.
+ * Used by procedures that need a caller context but should not block admins.
+ */
+export async function getPersonByUserIdOrEmail(userId: number, email: string | undefined, tenantId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  // First try userId match
+  const byId = await db.select().from(persons)
+    .where(and(eq(persons.userId, userId), eq(persons.tenantId, tenantId)))
+    .limit(1);
+  if (byId.length > 0) return byId[0];
+  // Fall back to email match (links imported persons to logged-in users)
+  if (email) {
+    const byEmail = await db.select().from(persons)
+      .where(and(eq(persons.email, email), eq(persons.tenantId, tenantId)))
+      .limit(1);
+    if (byEmail.length > 0) {
+      // Auto-link: set userId on the person record so future lookups are faster
+      await db.update(persons).set({ userId }).where(eq(persons.id, byEmail[0].id));
+      return { ...byEmail[0], userId };
+    }
+  }
+  return undefined;
+}
+
 export async function getPersonsByTenant(tenantId: number) {
   const db = await getDb();
   if (!db) return [];

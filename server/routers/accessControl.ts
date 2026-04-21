@@ -10,7 +10,7 @@ export const accessControlRouter = router({
     .input(z.object({ tenantId: z.number() }))
     .query(async ({ input, ctx }) => {
       // Verify the caller is a member of this tenant before listing grants
-      const caller = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const caller = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!caller && ctx.user.role !== "admin") {
         throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this tenant." });
       }
@@ -95,7 +95,7 @@ export const accessControlRouter = router({
     )
     .mutation(async ({ input, ctx }) => {
       // Verify caller belongs to this tenant before allowing a challenge submission
-      const caller = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const caller = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!caller && ctx.user.role !== "admin") {
         throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this tenant." });
       }

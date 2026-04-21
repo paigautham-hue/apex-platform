@@ -72,7 +72,7 @@ const personRouter = router({
   getMyProfile: protectedProcedure.query(async ({ ctx }) => {
     // Default to tenant 1 for now
     const tenantId = 1;
-    const person = await db.getPersonByUserId(ctx.user.id, tenantId);
+    const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, tenantId);
     if (!person) {
       throw new TRPCError({
         code: "NOT_FOUND",
@@ -93,9 +93,11 @@ const personRouter = router({
   getById: protectedProcedure
     .input(z.object({ personId: z.number(), tenantId: z.number() }))
     .query(async ({ input, ctx }) => {
-      // Verify caller belongs to this tenant before leaking any data
-      const caller = await db.getPersonByUserId(ctx.user.id, input.tenantId);
-      if (!caller) throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this tenant." });
+      // Admins can always view any person; regular users must belong to the tenant
+      if (ctx.user.role !== "admin") {
+        const caller = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
+        if (!caller) throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this tenant." });
+      }
 
       const person = await db.getPersonById(input.personId, input.tenantId);
       if (!person) {
@@ -117,15 +119,18 @@ const personRouter = router({
   list: protectedProcedure
     .input(z.object({ tenantId: z.number() }))
     .query(async ({ input, ctx }) => {
-      const caller = await db.getPersonByUserId(ctx.user.id, input.tenantId);
-      if (!caller) throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this tenant." });
+      // Admins can always see all persons; regular users must have a person record in the tenant
+      if (ctx.user.role !== "admin") {
+        const caller = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
+        if (!caller) throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this tenant." });
+      }
       return await db.getPersonsByTenant(input.tenantId);
     }),
 
   // Get direct reports
   getDirectReports: protectedProcedure.query(async ({ ctx }) => {
     const tenantId = 1;
-    const person = await db.getPersonByUserId(ctx.user.id, tenantId);
+    const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, tenantId);
     if (!person || !person.currentRoleId) return [];
 
     const directReportRoles = await db.getDirectReports(person.currentRoleId);
@@ -163,7 +168,7 @@ const observationRouter = router({
       meetingId: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -199,7 +204,7 @@ const observationRouter = router({
   getMyObservations: protectedProcedure
     .input(z.object({ tenantId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) return [];
       
       return await db.getObservationsByObserver(person.id, input.tenantId);
@@ -249,7 +254,7 @@ const planRouter = router({
       assumptions: z.array(z.string()).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -271,7 +276,7 @@ const planRouter = router({
   getMyPlans: protectedProcedure
     .input(z.object({ tenantId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) return [];
       
       return await db.getPlansByOwner(person.id);
@@ -367,7 +372,7 @@ const reflectionRouter = router({
       visibility: z.enum(["PRIVATE_DRAFT", "SHARED_WITH_MANAGER", "INCLUDED_IN_REVIEW"]).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -388,7 +393,7 @@ const reflectionRouter = router({
   getMyReflections: protectedProcedure
     .input(z.object({ tenantId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) return [];
       
       return await db.getSelfReflectionsByPerson(person.id, input.tenantId);
@@ -407,7 +412,7 @@ const notificationRouter = router({
       limit: z.number().optional().default(50)
     }))
     .query(async ({ ctx, input }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) return [];
       
       return await db.getNotificationsByPerson(person.id, input.tenantId, input.limit);
@@ -440,7 +445,7 @@ const decisionRouter = router({
       linkedMetricIds: z.array(z.number()).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -460,7 +465,7 @@ const decisionRouter = router({
   getMyDecisions: protectedProcedure
     .input(z.object({ tenantId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) return [];
       
       return await db.getDecisionsByOwner(person.id, input.tenantId);
@@ -484,7 +489,7 @@ const meetingRouter = router({
       sentiment: z.enum(["POSITIVE", "NEUTRAL", "CHALLENGING"]),
     }))
     .mutation(async ({ ctx, input }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -525,7 +530,7 @@ const meetingRouter = router({
       type: z.enum(["ONE_ON_ONE", "TEAM", "REVIEW", "CALIBRATION"]),
     }))
     .mutation(async ({ ctx, input }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -546,7 +551,7 @@ const meetingRouter = router({
   getMyMeetings: protectedProcedure
     .input(z.object({ tenantId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) return [];
       
       return await db.getMeetingsByManager(person.id, input.tenantId);
@@ -575,7 +580,7 @@ const incentiveRouter = router({
       fiscalYear: z.string(),
     }))
     .query(async ({ ctx, input }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) return [];
       
       return await db.getIncentiveComputations(person.id, input.fiscalYear);
@@ -629,7 +634,7 @@ const financialRouter = router({
       status: z.enum(["PENDING", "EXTRACTED", "CONFIRMED", "REJECTED"]),
     }))
     .mutation(async ({ ctx, input }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) {
         throw new TRPCError({
           code: "NOT_FOUND",
@@ -1004,7 +1009,7 @@ const governanceRouter = router({
       submit: z.boolean().default(false),
     }))
     .mutation(async ({ input, ctx }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person profile not found" });
 
       await db.upsertGovernanceAssessment({
@@ -1047,7 +1052,7 @@ const governanceRouter = router({
   getMyAssessments: protectedProcedure
     .input(z.object({ tenantId: z.number(), cycleId: z.number() }))
     .query(async ({ input, ctx }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) return [];
       return await db.getAssessmentsByAssessor(person.id, input.cycleId, input.tenantId);
     }),
@@ -1072,7 +1077,7 @@ const governanceRouter = router({
   getMyAssignments: protectedProcedure
     .input(z.object({ tenantId: z.number(), cycleId: z.number() }))
     .query(async ({ input, ctx }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) return [];
       return await db.getAssignmentsForAssessor(person.id, input.cycleId, input.tenantId);
     }),
@@ -1099,7 +1104,7 @@ const governanceRouter = router({
       })).nullable(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person profile not found" });
 
       await db.upsertMandateJournal({
@@ -1119,7 +1124,7 @@ const governanceRouter = router({
   getMyJournals: protectedProcedure
     .input(z.object({ tenantId: z.number(), cycleId: z.number() }))
     .query(async ({ input, ctx }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) return [];
       return await db.getMandateJournalsByPersonAndCycle(person.id, input.cycleId, input.tenantId);
     }),
@@ -1133,7 +1138,7 @@ const governanceRouter = router({
       completed: z.boolean(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person profile not found" });
 
       const journal = await db.getLastMandateJournal(
@@ -1161,7 +1166,7 @@ const governanceRouter = router({
       dimensionKey: z.string(),
     }))
     .query(async ({ input, ctx }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) return null;
       const last = await db.getLastMandateJournal(
         person.id,
@@ -1185,7 +1190,7 @@ const governanceRouter = router({
       forwardCommitments: z.array(z.string()).nullable(),
     }))
     .mutation(async ({ input, ctx }) => {
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person profile not found" });
 
       // Only the CEO of this company (or Chairman/Admin) can write its reflection
@@ -1240,7 +1245,7 @@ const governanceRouter = router({
     .mutation(async ({ input, ctx }) => {
       const ok = await db.isChairmanOrAdmin(ctx.user.id, input.tenantId);
       if (!ok) throw new TRPCError({ code: "FORBIDDEN", message: "Only the Chairman or Admin can write guidance." });
-      const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
       if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person profile not found" });
 
       await db.createChairmanGuidance({
@@ -1462,7 +1467,7 @@ export const appRouter = router({
         );
         
         // Get current person to use as uploader
-        const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+        const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
         if (!person) throw new TRPCError({ code: 'NOT_FOUND', message: 'Person not found' });
         
         // Store evidence record
