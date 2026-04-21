@@ -65,7 +65,10 @@ export default function NotificationPreferences() {
   const [, navigate] = useLocation();
 
   const resetOnboarding = trpc.preferences.resetOnboarding.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Invalidate the cached onboarding status so DashboardLayout picks up
+      // the reset state on the next render, not the stale "completed" one.
+      await utils.preferences.checkOnboarding.invalidate();
       toast.success("Onboarding reset — redirecting to wizard…");
       setTimeout(() => navigate("/onboarding"), 800);
     },

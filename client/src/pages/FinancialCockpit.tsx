@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { DollarSign, Lock } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
@@ -86,10 +86,14 @@ export default function FinancialCockpit() {
       refetchSummaries();
     },
     onError: (e) => toast.error(e.message),
+    onSettled: () => setSavingCellKey(null),
   });
 
   const myCompanyId = profile?.currentRole?.orgUnitId ?? 0;
-  const canEdit = (orgUnitId: number) => amIChairman === true || myCompanyId === orgUnitId;
+  const canEdit = useCallback(
+    (orgUnitId: number) => amIChairman === true || myCompanyId === orgUnitId,
+    [amIChairman, myCompanyId],
+  );
 
   const [draftCell, setDraftCell] = useState<{
     orgUnitId: number;
@@ -97,6 +101,9 @@ export default function FinancialCockpit() {
     qIndex: number;
     value: string;
   } | null>(null);
+  // Track which cell is currently saving so a user cannot click into another
+  // cell while a mutation is in flight. The key is "orgUnitId:metricName:qIndex".
+  const [savingCellKey, setSavingCellKey] = useState<string | null>(null);
 
   const companies = useMemo(
     () => (orgUnits ?? []).filter((u) => u.type === "PORTFOLIO_COMPANY"),
@@ -261,6 +268,7 @@ export default function FinancialCockpit() {
                           </TableCell>
                         );
                       }
+                      const cellKey = `${company.id}:Revenue FY27:${qIndex}`;
                       if (isDraft) {
                         return (
                           <TableCell key={qIndex} className="text-right">
@@ -268,6 +276,7 @@ export default function FinancialCockpit() {
                               autoFocus
                               className="h-8 w-20 text-right"
                               type="number"
+                              disabled={savingCellKey !== null && savingCellKey !== cellKey}
                               value={draftCell!.value}
                               onChange={(e) =>
                                 setDraftCell({ ...draftCell!, value: e.target.value })
@@ -275,6 +284,7 @@ export default function FinancialCockpit() {
                               onBlur={() => {
                                 const parsed = parseFloat(draftCell!.value);
                                 if (Number.isFinite(parsed)) {
+                                  setSavingCellKey(cellKey);
                                   writeQuarterlyActual.mutate({
                                     tenantId: TENANT_ID,
                                     orgUnitId: company.id,
@@ -293,19 +303,26 @@ export default function FinancialCockpit() {
                           </TableCell>
                         );
                       }
+                      const lockedBySave = savingCellKey !== null;
                       return (
                         <TableCell
                           key={qIndex}
-                          className="text-right cursor-pointer hover:bg-muted/40"
-                          onClick={() =>
+                          className={
+                            "text-right " +
+                            (lockedBySave
+                              ? "text-muted-foreground cursor-not-allowed"
+                              : "cursor-pointer hover:bg-muted/40")
+                          }
+                          onClick={() => {
+                            if (lockedBySave) return;
                             setDraftCell({
                               orgUnitId: company.id,
                               metricName: "Revenue FY27",
                               qIndex,
                               value: value == null ? "" : String(value),
-                            })
-                          }
-                          title="Click to edit"
+                            });
+                          }}
+                          title={lockedBySave ? "Another cell is saving…" : "Click to edit"}
                         >
                           {fmtCr(value)}
                         </TableCell>

@@ -9,6 +9,11 @@ export const accessControlRouter = router({
   listGrants: protectedProcedure
     .input(z.object({ tenantId: z.number() }))
     .query(async ({ input, ctx }) => {
+      // Verify the caller is a member of this tenant before listing grants
+      const caller = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!caller && ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this tenant." });
+      }
       const grants = await db.getAccessGrantsByTenant(input.tenantId);
       return grants;
     }),
@@ -45,14 +50,14 @@ export const accessControlRouter = router({
     }),
 
   revokeGrant: protectedProcedure
-    .input(z.object({ grantId: z.number() }))
+    .input(z.object({ grantId: z.number(), tenantId: z.number() }))
     .mutation(async ({ input, ctx }) => {
-      const grant = await db.getAccessGrantById(input.grantId);
+      const grant = await db.getAccessGrantById(input.grantId, input.tenantId);
       if (!grant) throw new TRPCError({ code: "NOT_FOUND", message: "Grant not found" });
       if (grant.grantedByUserId !== ctx.user.id && ctx.user.role !== "admin") {
         throw new TRPCError({ code: "FORBIDDEN", message: "You can only revoke your own grants" });
       }
-      await db.revokeAccessGrant(input.grantId, ctx.user.id);
+      await db.revokeAccessGrant(input.grantId, input.tenantId, ctx.user.id);
       return { success: true };
     }),
 
@@ -89,6 +94,11 @@ export const accessControlRouter = router({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      // Verify caller belongs to this tenant before allowing a challenge submission
+      const caller = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!caller && ctx.user.role !== "admin") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this tenant." });
+      }
       await db.createAccessChallenge({
         tenantId: input.tenantId,
         submittedByUserId: ctx.user.id,

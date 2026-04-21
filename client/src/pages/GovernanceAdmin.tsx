@@ -50,7 +50,12 @@ export default function GovernanceAdmin() {
   });
 
   const generateAssignments = trpc.governance.generateAssignments.useMutation({
-    onSuccess: (res) => toast.success(`Generated ${res.count} assignments`),
+    onSuccess: (res) =>
+      toast.success(
+        res.skipped > 0
+          ? `Generated ${res.count} assignments (${res.skipped} already existed)`
+          : `Generated ${res.count} assignments`,
+      ),
     onError: (e) => toast.error(e.message),
   });
 
@@ -77,6 +82,9 @@ export default function GovernanceAdmin() {
   const [perAssessor, setPerAssessor] = useState(3);
   const [newMonth, setNewMonth] = useState("");
 
+  if (amIChairman === undefined) {
+    return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+  }
   if (amIChairman === false) {
     return (
       <div className="space-y-6">

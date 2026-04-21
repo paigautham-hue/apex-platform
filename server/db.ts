@@ -176,10 +176,14 @@ export async function getOrgUnitsByTenant(tenantId: number) {
   return await db.select().from(orgUnits).where(eq(orgUnits.tenantId, tenantId));
 }
 
-export async function getOrgUnitById(id: number) {
+export async function getOrgUnitById(id: number, tenantId: number) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(orgUnits).where(eq(orgUnits.id, id)).limit(1);
+  const result = await db
+    .select()
+    .from(orgUnits)
+    .where(and(eq(orgUnits.id, id), eq(orgUnits.tenantId, tenantId)))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -190,10 +194,14 @@ export async function createPerson(person: InsertPerson) {
   return result;
 }
 
-export async function getPersonById(id: number) {
+export async function getPersonById(id: number, tenantId: number) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(persons).where(eq(persons.id, id)).limit(1);
+  const result = await db
+    .select()
+    .from(persons)
+    .where(and(eq(persons.id, id), eq(persons.tenantId, tenantId)))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -234,10 +242,14 @@ export async function createRole(role: InsertRole) {
   return result;
 }
 
-export async function getRoleById(id: number) {
+export async function getRoleById(id: number, tenantId: number) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(roles).where(eq(roles.id, id)).limit(1);
+  const result = await db
+    .select()
+    .from(roles)
+    .where(and(eq(roles.id, id), eq(roles.tenantId, tenantId)))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
@@ -1059,6 +1071,7 @@ export async function upsertCompanyReflection(r: InsertCompanyReflection) {
   if (existing.length > 0) {
     return await db.update(companyReflections)
       .set({
+        ceoPersonId: r.ceoPersonId,
         wentWell: r.wentWell,
         didntGoWell: r.didntGoWell,
         risks: r.risks,
@@ -1067,7 +1080,33 @@ export async function upsertCompanyReflection(r: InsertCompanyReflection) {
       })
       .where(eq(companyReflections.id, existing[0].id));
   }
-  return await db.insert(companyReflections).values(r);
+  try {
+    return await db.insert(companyReflections).values(r);
+  } catch (err: any) {
+    // Concurrent insert race — another writer won; retry as an update
+    if (err?.code === "ER_DUP_ENTRY" || /duplicate/i.test(err?.message ?? "")) {
+      const again = await db.select().from(companyReflections)
+        .where(and(
+          eq(companyReflections.tenantId, r.tenantId),
+          eq(companyReflections.orgUnitId, r.orgUnitId),
+          eq(companyReflections.cycleId, r.cycleId),
+        ))
+        .limit(1);
+      if (again.length > 0) {
+        return await db.update(companyReflections)
+          .set({
+            ceoPersonId: r.ceoPersonId,
+            wentWell: r.wentWell,
+            didntGoWell: r.didntGoWell,
+            risks: r.risks,
+            needsFromFund: r.needsFromFund,
+            forwardCommitments: r.forwardCommitments,
+          })
+          .where(eq(companyReflections.id, again[0].id));
+      }
+    }
+    throw err;
+  }
 }
 
 export async function getCompanyReflection(
@@ -1316,18 +1355,21 @@ export async function createAccessGrant(data: InsertAccessGrant) {
   return result;
 }
 
-export async function revokeAccessGrant(id: number, revokedByUserId: number) {
+export async function revokeAccessGrant(id: number, tenantId: number, revokedByUserId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.update(accessGrants)
     .set({ status: "REVOKED", revokedAt: new Date(), revokedByUserId })
-    .where(eq(accessGrants.id, id));
+    .where(and(eq(accessGrants.id, id), eq(accessGrants.tenantId, tenantId)));
 }
 
-export async function getAccessGrantById(id: number) {
+export async function getAccessGrantById(id: number, tenantId: number) {
   const db = await getDb();
   if (!db) return null;
-  const [grant] = await db.select().from(accessGrants).where(eq(accessGrants.id, id));
+  const [grant] = await db
+    .select()
+    .from(accessGrants)
+    .where(and(eq(accessGrants.id, id), eq(accessGrants.tenantId, tenantId)));
   return grant ?? null;
 }
 

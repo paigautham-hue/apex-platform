@@ -37,7 +37,7 @@ const tenantRouter = router({
       return await db.getOrgUnitsByTenant(input.tenantId);
     }),
   
-  // Create org unit
+  // Create org unit (Chairman/Admin only)
   createOrgUnit: protectedProcedure
     .input(z.object({
       tenantId: z.number(),
@@ -45,8 +45,15 @@ const tenantRouter = router({
       type: z.enum(["HOLDING_COMPANY", "PORTFOLIO_COMPANY", "FUNCTION", "TEAM", "SUB_BUSINESS"]),
       parentId: z.number().nullable(),
     }))
-    .mutation(async ({ input }) => {
-      const result = await db.createOrgUnit({
+    .mutation(async ({ input, ctx }) => {
+      const ok = await db.isChairmanOrAdmin(ctx.user.id, input.tenantId);
+      if (!ok) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only the Chairman or Admin can create org units.",
+        });
+      }
+      await db.createOrgUnit({
         tenantId: input.tenantId,
         name: input.name,
         type: input.type,
@@ -64,37 +71,42 @@ const personRouter = router({
   // Get current user's person profile
   getMyProfile: protectedProcedure.query(async ({ ctx }) => {
     // Default to tenant 1 for now
-    const person = await db.getPersonByUserId(ctx.user.id, 1);
+    const tenantId = 1;
+    const person = await db.getPersonByUserId(ctx.user.id, tenantId);
     if (!person) {
       throw new TRPCError({
         code: "NOT_FOUND",
         message: "Person profile not found. Please contact your administrator."
       });
     }
-    
-    // Get current role
-    const role = person.currentRoleId ? await db.getRoleById(person.currentRoleId) : null;
-    
+
+    // Get current role (tenant-scoped)
+    const role = person.currentRoleId ? await db.getRoleById(person.currentRoleId, tenantId) : null;
+
     return {
       ...person,
       currentRole: role
     };
   }),
 
-  // Get person by ID
+  // Get person by ID (tenant-scoped to caller's tenant)
   getById: protectedProcedure
-    .input(z.object({ personId: z.number() }))
-    .query(async ({ input }) => {
-      const person = await db.getPersonById(input.personId);
+    .input(z.object({ personId: z.number(), tenantId: z.number() }))
+    .query(async ({ input, ctx }) => {
+      // Verify caller belongs to this tenant before leaking any data
+      const caller = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!caller) throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this tenant." });
+
+      const person = await db.getPersonById(input.personId, input.tenantId);
       if (!person) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Person not found"
         });
       }
-      
-      const role = person.currentRoleId ? await db.getRoleById(person.currentRoleId) : null;
-      
+
+      const role = person.currentRoleId ? await db.getRoleById(person.currentRoleId, input.tenantId) : null;
+
       return {
         ...person,
         currentRole: role
@@ -104,26 +116,29 @@ const personRouter = router({
   // List all persons in tenant
   list: protectedProcedure
     .input(z.object({ tenantId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ input, ctx }) => {
+      const caller = await db.getPersonByUserId(ctx.user.id, input.tenantId);
+      if (!caller) throw new TRPCError({ code: "FORBIDDEN", message: "Not a member of this tenant." });
       return await db.getPersonsByTenant(input.tenantId);
     }),
 
   // Get direct reports
   getDirectReports: protectedProcedure.query(async ({ ctx }) => {
-    const person = await db.getPersonByUserId(ctx.user.id, 1);
+    const tenantId = 1;
+    const person = await db.getPersonByUserId(ctx.user.id, tenantId);
     if (!person || !person.currentRoleId) return [];
-    
+
     const directReportRoles = await db.getDirectReports(person.currentRoleId);
     const directReports = await Promise.all(
       directReportRoles.map(async (role) => {
-        const reportPerson = await db.getPersonById(role.personId);
+        const reportPerson = await db.getPersonById(role.personId, tenantId);
         return {
           ...reportPerson,
           role: role
         };
       })
     );
-    
+
     return directReports.filter(r => r !== null);
   }),
 });
@@ -963,8 +978,14 @@ const governanceRouter = router({
         }
       }
 
-      await db.createAssessmentAssignments(assignments);
-      return { success: true, count: assignments.length };
+      // Dedup against existing rows so running the same rule twice is safe.
+      const existing = await db.getAssignmentsByCycle(input.cycleId, input.tenantId);
+      const key = (a: { assessorPersonId: number; targetType: string; targetId: number; feedbackTypeId: number }) =>
+        `${a.assessorPersonId}:${a.targetType}:${a.targetId}:${a.feedbackTypeId}`;
+      const seen = new Set(existing.map(key));
+      const fresh = assignments.filter((a) => !seen.has(key(a)));
+      await db.createAssessmentAssignments(fresh);
+      return { success: true, count: fresh.length, skipped: assignments.length - fresh.length };
     }),
 
   // --- Assessments ---
@@ -1166,6 +1187,15 @@ const governanceRouter = router({
     .mutation(async ({ input, ctx }) => {
       const person = await db.getPersonByUserId(ctx.user.id, input.tenantId);
       if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person profile not found" });
+
+      // Only the CEO of this company (or Chairman/Admin) can write its reflection
+      const ok = await db.canEditCompanyFinancials(ctx.user.id, input.tenantId, input.orgUnitId);
+      if (!ok) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only the CEO of this company (or Chairman/Admin) can submit its reflection.",
+        });
+      }
 
       await db.upsertCompanyReflection({
         tenantId: input.tenantId,

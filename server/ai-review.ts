@@ -35,7 +35,7 @@ export async function generatePerformanceReview(
   // Gather all relevant data
   const observations = await db.getObservationsBySubject(personId, tenantId, 1000);
   const evidence = await db.getEvidenceByPerson(personId, tenantId);
-  const person = await db.getPersonById(personId);
+  const person = await db.getPersonById(personId, tenantId);
   const plans = await db.getPlansByOwner(personId);
 
   // Filter by period
@@ -199,15 +199,34 @@ For each value, provide:
   });
 
   const content = response.choices[0]?.message?.content;
-  
-  // Parse the response (simplified - in production, use structured output)
+
   const valuesAssessment: Record<string, { score: number; examples: string[] }> = {};
-  
-  coreValues.forEach(value => {
-    valuesAssessment[value] = {
-      score: Math.floor(Math.random() * 3) + 7, // Placeholder: 7-10
-      examples: observations.slice(0, 2).map((obs: any) => obs.text)
-    };
+
+  // Try to parse a structured JSON response of shape:
+  //   { "<value>": { "score": number, "examples": string[] } }
+  // Fall back to null scores if the model did not return usable structured data
+  // — do NOT fabricate random scores that downstream consumers may treat as real.
+  let parsed: Record<string, { score?: unknown; examples?: unknown }> | null = null;
+  if (typeof content === "string" && content.trim().length > 0) {
+    try {
+      const maybe = JSON.parse(content);
+      if (maybe && typeof maybe === "object") parsed = maybe as typeof parsed;
+    } catch {
+      parsed = null;
+    }
+  }
+
+  coreValues.forEach((value) => {
+    const entry: { score?: unknown; examples?: unknown } | undefined =
+      parsed && typeof parsed === "object" ? (parsed as Record<string, { score?: unknown; examples?: unknown }>)[value] : undefined;
+    const rawScore = entry?.score;
+    const score =
+      typeof rawScore === "number" && Number.isFinite(rawScore) ? rawScore : 0;
+    const rawExamples = entry?.examples;
+    const examples = Array.isArray(rawExamples)
+      ? rawExamples.filter((x: unknown): x is string => typeof x === "string")
+      : observations.slice(0, 2).map((obs: any) => obs.text);
+    valuesAssessment[value] = { score, examples };
   });
 
   return valuesAssessment;

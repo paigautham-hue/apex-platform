@@ -21,10 +21,14 @@ import { mandateJournals, governanceCycles, persons } from "../drizzle/schema";
 type PlanItem = { item: string; completedNextMonth: boolean | null };
 type Verdict = "ADDRESSED" | "PARTIAL" | "DEFERRED" | "NOT_MENTIONED";
 
+// In-memory lock to prevent duplicate LLM spend when two admins trigger the
+// tracker concurrently for the same (tenant, cycle). Keyed by tenantId:cycleId.
+const runningCommitmentTracker = new Set<string>();
+
 async function classifyPlanItems(
   priorItems: PlanItem[],
   logText: string,
-): Promise<Verdict[]> {
+): Promise<Verdict[] | null> {
   if (priorItems.length === 0) return [];
   if (!logText || !logText.trim()) {
     return priorItems.map(() => "NOT_MENTIONED");
@@ -80,14 +84,34 @@ Return a JSON object with key "verdicts" — an array of strings the same length
   const content = resp?.choices?.[0]?.message?.content ?? "";
   try {
     const parsed = JSON.parse(typeof content === "string" ? content : JSON.stringify(content));
-    const verdicts = parsed.verdicts as Verdict[];
-    if (Array.isArray(verdicts) && verdicts.length === priorItems.length) {
-      return verdicts;
+    const verdicts = parsed.verdicts;
+    if (!Array.isArray(verdicts)) {
+      console.warn("[ai-commitment] LLM response missing 'verdicts' array; skipping classification");
+      return null;
     }
-  } catch {
-    // fall through
+    if (verdicts.length !== priorItems.length) {
+      // Length mismatch means the verdicts are misaligned with items. Writing
+      // them back would corrupt completedNextMonth on the wrong commitments.
+      // Skip this journal rather than silently mislabel it.
+      console.warn(
+        `[ai-commitment] length mismatch: ${verdicts.length} verdicts for ${priorItems.length} items; skipping`,
+      );
+      return null;
+    }
+    const validVerdicts: Verdict[] = [];
+    const allowed: Verdict[] = ["ADDRESSED", "PARTIAL", "DEFERRED", "NOT_MENTIONED"];
+    for (const v of verdicts) {
+      if (typeof v !== "string" || !allowed.includes(v as Verdict)) {
+        console.warn(`[ai-commitment] invalid verdict value: ${v}; skipping`);
+        return null;
+      }
+      validVerdicts.push(v as Verdict);
+    }
+    return validVerdicts;
+  } catch (err) {
+    console.warn("[ai-commitment] failed to parse LLM response:", err);
+    return null;
   }
-  return priorItems.map(() => "NOT_MENTIONED");
 }
 
 /**
@@ -98,6 +122,19 @@ Return a JSON object with key "verdicts" — an array of strings the same length
  *   DEFERRED / NOT_MENTIONED -> false
  */
 export async function runCommitmentTrackerForCycle(tenantId: number, currentCycleId: number) {
+  const lockKey = `${tenantId}:${currentCycleId}`;
+  if (runningCommitmentTracker.has(lockKey)) {
+    throw new Error("Commitment tracker is already running for this cycle. Please wait for it to finish.");
+  }
+  runningCommitmentTracker.add(lockKey);
+  try {
+    return await _runCommitmentTrackerForCycleInner(tenantId, currentCycleId);
+  } finally {
+    runningCommitmentTracker.delete(lockKey);
+  }
+}
+
+async function _runCommitmentTrackerForCycleInner(tenantId: number, currentCycleId: number) {
   const database = await getDb();
   if (!database) throw new Error("Database not available");
 
@@ -123,6 +160,10 @@ export async function runCommitmentTrackerForCycle(tenantId: number, currentCycl
 
     try {
       const verdicts = await classifyPlanItems(priorItems, current.logText ?? "");
+      if (verdicts === null) {
+        // LLM returned an unusable response — do not patch this journal
+        continue;
+      }
       const patched = priorItems.map((it, i) => ({
         ...it,
         completedNextMonth:

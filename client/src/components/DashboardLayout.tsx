@@ -68,20 +68,28 @@ export default function DashboardLayout({
   const [, navigate] = useLocation();
 
   // Check if onboarding is needed
-  const { data: onboardingStatus, isLoading: onboardingLoading } = trpc.preferences.checkOnboarding.useQuery(
-    undefined,
-    { enabled: !!user }
-  );
+  const { data: onboardingStatus, isLoading: onboardingLoading, isError: onboardingError } =
+    trpc.preferences.checkOnboarding.useQuery(undefined, { enabled: !!user });
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
   }, [sidebarWidth]);
 
   useEffect(() => {
-    if (user && !onboardingLoading && onboardingStatus && !onboardingStatus.completed) {
+    // Redirect to /onboarding unless we have explicit confirmation that
+    // onboarding is complete. If the query errored or returned null, we
+    // still redirect — better to show the wizard than trap the user.
+    if (!user) return;
+    if (onboardingLoading) return;
+    const isComplete = !!onboardingStatus && onboardingStatus.completed === true;
+    if (!isComplete && !onboardingError) {
+      // Query settled. If not complete, redirect.
+      navigate("/onboarding");
+    } else if (onboardingError) {
+      // Query failed; redirect so the user isn't stuck in an unstyled limbo
       navigate("/onboarding");
     }
-  }, [user, onboardingLoading, onboardingStatus, navigate]);
+  }, [user, onboardingLoading, onboardingStatus, onboardingError, navigate]);
 
   if (loading || (user && onboardingLoading)) {
     return <DashboardLayoutSkeleton />
@@ -152,7 +160,12 @@ function SettingsSubmenu({
         isActive={isSettingsActive && isCollapsed}
         onClick={() => {
           if (isCollapsed) {
-            setLocation("/settings/notifications");
+            // When collapsed, only navigate if we're not already on a
+            // settings subpage. This prevents clicking Settings from bouncing
+            // the user off /settings/access-grants back to /settings/notifications.
+            if (!isSettingsActive) {
+              setLocation("/settings/notifications");
+            }
           } else {
             setOpen((o) => !o);
           }

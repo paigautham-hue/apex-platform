@@ -81,10 +81,8 @@ export default function MyIsland() {
   const orgUnitId = profile?.currentRole?.orgUnitId ?? 0;
   const company = orgUnits?.find((u) => u.id === orgUnitId);
 
-  const dimensions = useMemo(
-    () => DEFAULT_COMPANY_DIMENSIONS.map((d) => d),
-    [],
-  );
+  // Module-level constant: reference directly; array identity is stable.
+  const dimensions: string[] = DEFAULT_COMPANY_DIMENSIONS as unknown as string[];
 
   const selfType = feedbackTypes?.find((t) => t.key === "self");
   const chairmanType = feedbackTypes?.find((t) => t.key === "chairman");
@@ -173,11 +171,11 @@ export default function MyIsland() {
     setDrafts((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
   };
 
-  const saveJournal = (dim: string) => {
+  const saveJournal = async (dim: string): Promise<void> => {
     if (!cycleId || !orgUnitId) return;
     const d = drafts[dim];
     if (!d) return;
-    upsertJournal.mutate({
+    await upsertJournal.mutateAsync({
       tenantId: TENANT_ID,
       cycleId,
       dimensionKey: dim,
@@ -189,11 +187,11 @@ export default function MyIsland() {
     });
   };
 
-  const saveRating = (dim: string, submit = false) => {
+  const saveRating = async (dim: string, submit = false): Promise<void> => {
     if (!cycleId || !selfType || !orgUnitId) return;
     const d = drafts[dim];
     if (!d) return;
-    upsertAssessment.mutate({
+    await upsertAssessment.mutateAsync({
       tenantId: TENANT_ID,
       cycleId,
       targetType: "COMPANY",
@@ -208,9 +206,9 @@ export default function MyIsland() {
     });
   };
 
-  const saveReflection = () => {
+  const saveReflection = async (): Promise<void> => {
     if (!cycleId || !orgUnitId) return;
-    upsertReflection.mutate({
+    await upsertReflection.mutateAsync({
       tenantId: TENANT_ID,
       cycleId,
       orgUnitId,
@@ -222,14 +220,42 @@ export default function MyIsland() {
     });
   };
 
-  const submitMonth = () => {
+  // Fire-and-forget wrappers for blur/commit handlers
+  const saveJournalOnBlur = (dim: string) => {
+    void saveJournal(dim).catch((err) => {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    });
+  };
+  const saveRatingOnCommit = (dim: string) => {
+    void saveRating(dim).catch((err) => {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    });
+  };
+  const saveReflectionOnBlur = () => {
+    void saveReflection().catch((err) => {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    });
+  };
+
+  const submitMonth = async () => {
     if (!cycleId) return;
+    const tasks: Promise<void>[] = [];
     for (const dim of dimensions) {
-      saveJournal(dim);
-      saveRating(dim, true);
+      tasks.push(saveJournal(dim));
+      tasks.push(saveRating(dim, true));
     }
-    saveReflection();
-    toast.success("Island submitted for this cycle.");
+    tasks.push(saveReflection());
+    const results = await Promise.allSettled(tasks);
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length > 0) {
+      const firstErr = failed[0] as PromiseRejectedResult;
+      toast.error(
+        `Submit incomplete: ${failed.length}/${results.length} writes failed. ` +
+          (firstErr.reason instanceof Error ? firstErr.reason.message : String(firstErr.reason)),
+      );
+    } else {
+      toast.success("Island submitted for this cycle.");
+    }
   };
 
   if (!profile) {
@@ -407,7 +433,7 @@ export default function MyIsland() {
                       rows={5}
                       value={draft.logText}
                       onChange={(e) => updateDraft(dim, { logText: e.target.value })}
-                      onBlur={() => saveJournal(dim)}
+                      onBlur={() => saveJournalOnBlur(dim)}
                       placeholder="Key events, decisions, progress..."
                     />
                   </TabsContent>
@@ -433,7 +459,7 @@ export default function MyIsland() {
                       rows={5}
                       value={draft.planText}
                       onChange={(e) => updateDraft(dim, { planText: e.target.value })}
-                      onBlur={() => saveJournal(dim)}
+                      onBlur={() => saveJournalOnBlur(dim)}
                       placeholder="Specific commitments for the next cycle..."
                     />
                   </TabsContent>
@@ -449,7 +475,7 @@ export default function MyIsland() {
                         step={1}
                         value={[draft.score ?? 5]}
                         onValueChange={([v]) => updateDraft(dim, { score: v })}
-                        onValueCommit={() => saveRating(dim)}
+                        onValueCommit={() => saveRatingOnCommit(dim)}
                       />
                       <div className="flex justify-between text-xs text-muted-foreground mt-1">
                         <span>1 · At risk</span>
@@ -509,7 +535,7 @@ export default function MyIsland() {
               rows={4}
               value={reflection.wentWell}
               onChange={(e) => setReflection((p) => ({ ...p, wentWell: e.target.value }))}
-              onBlur={saveReflection}
+              onBlur={saveReflectionOnBlur}
               placeholder="2-3 bullets, one per line"
             />
           </div>
@@ -519,7 +545,7 @@ export default function MyIsland() {
               rows={4}
               value={reflection.didntGoWell}
               onChange={(e) => setReflection((p) => ({ ...p, didntGoWell: e.target.value }))}
-              onBlur={saveReflection}
+              onBlur={saveReflectionOnBlur}
               placeholder="2-3 bullets, one per line"
             />
           </div>
@@ -529,7 +555,7 @@ export default function MyIsland() {
               rows={4}
               value={reflection.risks}
               onChange={(e) => setReflection((p) => ({ ...p, risks: e.target.value }))}
-              onBlur={saveReflection}
+              onBlur={saveReflectionOnBlur}
               placeholder="What could derail the next quarter"
             />
           </div>
@@ -539,7 +565,7 @@ export default function MyIsland() {
               rows={4}
               value={reflection.needsFromFund}
               onChange={(e) => setReflection((p) => ({ ...p, needsFromFund: e.target.value }))}
-              onBlur={saveReflection}
+              onBlur={saveReflectionOnBlur}
               placeholder="Asks to MD / Chairman / group functions"
             />
           </div>
@@ -551,7 +577,7 @@ export default function MyIsland() {
               onChange={(e) =>
                 setReflection((p) => ({ ...p, forwardCommitments: e.target.value }))
               }
-              onBlur={saveReflection}
+              onBlur={saveReflectionOnBlur}
               placeholder="The three things I will ship by end of next cycle"
             />
           </div>

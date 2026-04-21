@@ -168,6 +168,10 @@ export default function ChairmanAssess() {
     toast.success(`Submitted Chairman assessment for ${activeTarget.label}.`);
   };
 
+  // Guard: while the permission query is loading, show nothing destructive.
+  if (amIChairman === undefined) {
+    return <div className="p-6 text-sm text-muted-foreground">Loading…</div>;
+  }
   // Guard: non-Chairman users see a lock screen
   if (amIChairman === false) {
     return (

@@ -119,11 +119,11 @@ export default function MyBridge() {
     setDrafts((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
   };
 
-  const saveJournal = (dim: string) => {
+  const saveJournal = async (dim: string): Promise<void> => {
     if (!cycleId) return;
     const d = drafts[dim];
     if (!d) return;
-    upsertJournal.mutate({
+    await upsertJournal.mutateAsync({
       tenantId: TENANT_ID,
       cycleId,
       dimensionKey: dim,
@@ -135,11 +135,11 @@ export default function MyBridge() {
     });
   };
 
-  const saveRating = (dim: string, submit = false) => {
+  const saveRating = async (dim: string, submit = false): Promise<void> => {
     if (!cycleId || !selfType) return;
     const d = drafts[dim];
     if (!d) return;
-    upsertAssessment.mutate({
+    await upsertAssessment.mutateAsync({
       tenantId: TENANT_ID,
       cycleId,
       targetType: "ROLE",
@@ -154,13 +154,37 @@ export default function MyBridge() {
     });
   };
 
+  // Fire-and-forget for blur handlers (just logs any error to sonner via the
+  // mutation's onError). Returns void so onBlur handlers stay synchronous.
+  const saveJournalOnBlur = (dim: string) => {
+    void saveJournal(dim).catch((err) => {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    });
+  };
+  const saveRatingOnCommit = (dim: string) => {
+    void saveRating(dim).catch((err) => {
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    });
+  };
+
   const submitMonth = async () => {
     if (!cycleId) return;
+    const tasks: Promise<void>[] = [];
     for (const dim of mandates) {
-      saveJournal(dim);
-      saveRating(dim, true);
+      tasks.push(saveJournal(dim));
+      tasks.push(saveRating(dim, true));
     }
-    toast.success("Submitted for this cycle. Chairman view unlocks after chairman submits.");
+    const results = await Promise.allSettled(tasks);
+    const failed = results.filter((r) => r.status === "rejected");
+    if (failed.length > 0) {
+      const firstErr = failed[0] as PromiseRejectedResult;
+      toast.error(
+        `Submit incomplete: ${failed.length}/${results.length} writes failed. ` +
+          (firstErr.reason instanceof Error ? firstErr.reason.message : String(firstErr.reason)),
+      );
+    } else {
+      toast.success("Submitted for this cycle. Chairman view unlocks after chairman submits.");
+    }
   };
 
   const myChains = useMemo(() => {
@@ -342,7 +366,7 @@ export default function MyBridge() {
                         rows={5}
                         value={draft.logText}
                         onChange={(e) => updateDraft(dim, { logText: e.target.value })}
-                        onBlur={() => saveJournal(dim)}
+                        onBlur={() => saveJournalOnBlur(dim)}
                         placeholder="The ship's log for this heading..."
                       />
                     </TabsContent>
@@ -368,7 +392,7 @@ export default function MyBridge() {
                         rows={5}
                         value={draft.planText}
                         onChange={(e) => updateDraft(dim, { planText: e.target.value })}
-                        onBlur={() => saveJournal(dim)}
+                        onBlur={() => saveJournalOnBlur(dim)}
                         placeholder="Top 1-3 specific commitments for the next cycle..."
                       />
                     </TabsContent>
@@ -384,7 +408,7 @@ export default function MyBridge() {
                           step={1}
                           value={[draft.score ?? 5]}
                           onValueChange={([v]) => updateDraft(dim, { score: v })}
-                          onValueCommit={() => saveRating(dim)}
+                          onValueCommit={() => saveRatingOnCommit(dim)}
                         />
                         <div className="flex justify-between text-xs text-muted-foreground mt-1">
                           <span>1 · Struggling</span>

@@ -91,7 +91,11 @@ export async function generatePerceptionGapInsights(tenantId: number, cycleId: n
       targetId: v.targetId,
       text: `Perception gap of ${gap} on "${v.dimensionKey}" — self ${v.self.score}/10 vs chairman ${v.chairman.score}/10.`,
       severity,
-      metadata: { selfScore: v.self.score, chairmanScore: v.chairman.score, gap },
+      metadata: {
+        selfScore: Number(v.self.score),
+        chairmanScore: Number(v.chairman.score),
+        gap,
+      },
     });
     count += 1;
   }
@@ -157,10 +161,27 @@ export async function generateChainRiskInsights(tenantId: number, cycleId: numbe
             a.targetId === roleId &&
             a.score != null,
         )
-        .map((a) => a.score as number);
-      if (roleScores.length > 0) scores.push(roleScores.reduce((x, y) => x + y, 0) / roleScores.length);
+        .map((a) => Number(a.score));
+      if (roleScores.length > 0 && roleScores.every(Number.isFinite)) {
+        scores.push(roleScores.reduce((x, y) => x + y, 0) / roleScores.length);
+      }
     }
-    if (scores.length === 0) continue;
+    // If a chain has members but no chairman assessments yet, surface it as
+    // INFO so the gap isn't invisible in the dashboard.
+    if (scores.length === 0) {
+      if (memberRoleIds.length > 0) {
+        await writeInsight(tenantId, cycleId, {
+          insightType: "CHAIN_RISK",
+          targetType: "CHAIN",
+          targetId: chain.id,
+          text: `Chain "${chain.name}" has no chairman assessments for its ${memberRoleIds.length} member role(s) this cycle.`,
+          severity: "INFO",
+          metadata: { chainName: chain.name, memberCount: memberRoleIds.length },
+        });
+        count += 1;
+      }
+      continue;
+    }
     const weakest = Math.min(...scores);
     if (weakest > 5) continue;
     const severity: Severity = weakest <= 3 ? "CRITICAL" : "WARNING";
@@ -204,11 +225,12 @@ export async function generateFinancialMismatchInsights(tenantId: number, cycleI
     );
     if (!annualBudget || ytdQuarters.length === 0) continue;
 
-    const budget = toNum(annualBudget.targetValue);
-    const ytd = ytdQuarters
+    const budgetNum = toNum(annualBudget.targetValue);
+    if (budgetNum === null || budgetNum <= 0) continue;
+    const budget: number = budgetNum;
+    const ytd: number = ytdQuarters
       .map((r: typeof summaries[0]) => toNum(r.actualValue) ?? 0)
       .reduce((a: number, b: number) => a + b, 0);
-    if (!budget || budget <= 0) continue;
     const variancePct = ((ytd - budget) / budget) * 100;
     if (Math.abs(variancePct) < 15) continue;
     const severity: Severity = Math.abs(variancePct) >= 25 ? "CRITICAL" : "WARNING";

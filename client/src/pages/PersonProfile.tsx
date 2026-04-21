@@ -6,7 +6,7 @@ import { useLocation } from "wouter";
 
 export default function PersonProfile({ personId }: { personId: number }) {
   const [, setLocation] = useLocation();
-  const { data: person, isLoading } = trpc.person.getById.useQuery({ personId });
+  const { data: person, isLoading } = trpc.person.getById.useQuery({ personId, tenantId: 1 });
   const { data: observations } = trpc.observation.getByPerson.useQuery({ personId, tenantId: 1 });
 
   if (isLoading) return <div className="skeleton h-96 w-full"></div>;

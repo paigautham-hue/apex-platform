@@ -20,19 +20,26 @@ async function safeCreateMany(
   tenantId: number,
   template: { type: "REMINDER" | "INSIGHT"; title: string; body: string; actionUrl?: string | null },
 ) {
-  for (const personId of personIds) {
-    try {
-      await db.createNotification({
+  if (personIds.length === 0) return;
+  // Parallelise with allSettled so a single failure does not block the rest
+  // and the mutation that triggered this returns quickly.
+  const results = await Promise.allSettled(
+    personIds.map((personId) =>
+      db.createNotification({
         tenantId,
         personId,
         type: template.type,
         title: template.title,
         body: template.body,
         actionUrl: template.actionUrl ?? null,
-      });
-    } catch (err) {
-      console.warn(`[governance-notifications] failed to create for person ${personId}:`, err);
-    }
+      }),
+    ),
+  );
+  const failures = results.filter((r) => r.status === "rejected");
+  if (failures.length > 0) {
+    console.warn(
+      `[governance-notifications] ${failures.length}/${personIds.length} notifications failed for template "${template.title}"`,
+    );
   }
 }
 
@@ -69,10 +76,10 @@ export async function notifyChairmanSubmittedForRoleTarget(
   roleId: number,
   month: string,
 ) {
-  const role = await db.getRoleById(roleId);
+  const role = await db.getRoleById(roleId, tenantId);
   if (!role) return;
   // Target person = the person who holds the role; they get the notification
-  const person = await db.getPersonById(role.personId);
+  const person = await db.getPersonById(role.personId, tenantId);
   if (!person) return;
   await safeCreateMany([person.id], tenantId, {
     type: "INSIGHT",

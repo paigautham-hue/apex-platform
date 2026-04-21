@@ -19,7 +19,7 @@ export default function ReviewDraftPreview() {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState<Record<string, string>>({});
 
-  const { data: person } = trpc.person.getById.useQuery({ personId });
+  const { data: person } = trpc.person.getById.useQuery({ personId, tenantId: 1 });
   const { data: reviewData, isLoading } = trpc.review.getDraftByPerson.useQuery({
     personId,
     tenantId: user?.id || 0,

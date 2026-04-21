@@ -261,7 +261,7 @@ export default function AccessGrants() {
                         variant="destructive"
                         size="sm"
                         disabled={revokeGrant.isPending}
-                        onClick={() => revokeGrant.mutate({ grantId: grant.id })}
+                        onClick={() => revokeGrant.mutate({ grantId: grant.id, tenantId: TENANT_ID })}
                       >
                         Revoke
                       </Button>

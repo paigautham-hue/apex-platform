@@ -339,7 +339,16 @@ export default function Admin() {
               <h2 className="text-lg font-semibold">Access Challenges</h2>
               <p className="text-sm text-muted-foreground">Review and resolve user-submitted access challenges</p>
             </div>
-            <Select value={challengeFilter} onValueChange={(v) => setChallengeFilter(v as typeof challengeFilter)}>
+            <Select
+              value={challengeFilter}
+              onValueChange={(v) => {
+                setChallengeFilter(v as typeof challengeFilter);
+                // Clear expansion + draft notes so state from a different filter
+                // doesn't leak into the new list.
+                setExpandedChallenge(null);
+                setResolutionText({});
+              }}
+            >
               <SelectTrigger className="w-40">
                 <SelectValue />
               </SelectTrigger>

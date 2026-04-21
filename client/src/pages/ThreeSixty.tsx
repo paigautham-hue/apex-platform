@@ -145,13 +145,15 @@ export default function ThreeSixty() {
   }, [assessments, feedbackTypes, active]);
 
   // Radar chart data: one row per dimension, columns per feedback type.
+  // Use a stable synthetic key per feedbackTypeId so labels with special
+  // characters (parentheses, punctuation) never break the recharts dataKey match.
   const radarData = useMemo(() => {
     if (!active) return [];
     return active.dimensions.map((dim) => {
       const row: Record<string, string | number> = { dimension: dim };
       for (const agg of aggregates) {
         const bucket = agg.perDimension[dim];
-        row[agg.label] = bucket && bucket.count > 0 ? bucket.sum / bucket.count : 0;
+        row[`type_${agg.feedbackTypeId}`] = bucket && bucket.count > 0 ? bucket.sum / bucket.count : 0;
       }
       return row;
     });
@@ -241,7 +243,7 @@ export default function ThreeSixty() {
                       <Radar
                         key={agg.feedbackTypeId}
                         name={agg.label}
-                        dataKey={agg.label}
+                        dataKey={`type_${agg.feedbackTypeId}`}
                         stroke={agg.color}
                         fill={agg.color}
                         fillOpacity={0.12}

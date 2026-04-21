@@ -20,6 +20,21 @@ const statements = [
     \`updatedAt\` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT \`accessGrants_id\` PRIMARY KEY(\`id\`)
   )`,
+  `CREATE TABLE IF NOT EXISTS \`accessChallenges\` (
+    \`id\` int AUTO_INCREMENT NOT NULL,
+    \`tenantId\` int NOT NULL,
+    \`submittedByUserId\` int NOT NULL,
+    \`challengeType\` enum('UNAUTHORIZED_ACCESS','INCORRECT_VISIBILITY','MISSING_ACCESS','DATA_ACCURACY','PRIVACY_CONCERN','OTHER') NOT NULL,
+    \`description\` text NOT NULL,
+    \`relatedGrantId\` int,
+    \`status\` enum('PENDING','UNDER_REVIEW','RESOLVED','DISMISSED') NOT NULL DEFAULT 'PENDING',
+    \`resolution\` text,
+    \`resolvedByUserId\` int,
+    \`resolvedAt\` timestamp,
+    \`createdAt\` timestamp NOT NULL DEFAULT (now()),
+    \`updatedAt\` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT \`accessChallenges_id\` PRIMARY KEY(\`id\`)
+  )`,
   `CREATE TABLE IF NOT EXISTS \`userPreferences\` (
     \`id\` int AUTO_INCREMENT NOT NULL,
     \`userId\` int NOT NULL,
