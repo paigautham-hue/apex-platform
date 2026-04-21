@@ -43,9 +43,9 @@ describe("Access Control DB helpers", () => {
     expect(result).toEqual([]);
   });
 
-  it("revokeAccessGrant is called with grantId and userId", async () => {
-    await db.revokeAccessGrant(10, 42);
-    expect(db.revokeAccessGrant).toHaveBeenCalledWith(10, 42);
+  it("revokeAccessGrant is called with grantId, tenantId, and revokedByUserId", async () => {
+    await db.revokeAccessGrant(10, 1, 42);
+    expect(db.revokeAccessGrant).toHaveBeenCalledWith(10, 1, 42);
   });
 
   it("createAccessChallenge is called with correct shape", async () => {

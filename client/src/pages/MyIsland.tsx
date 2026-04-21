@@ -82,7 +82,7 @@ export default function MyIsland() {
   const company = orgUnits?.find((u) => u.id === orgUnitId);
 
   // Module-level constant: reference directly; array identity is stable.
-  const dimensions: string[] = DEFAULT_COMPANY_DIMENSIONS as unknown as string[];
+  const dimensions: readonly string[] = DEFAULT_COMPANY_DIMENSIONS;
 
   const selfType = feedbackTypes?.find((t) => t.key === "self");
   const chairmanType = feedbackTypes?.find((t) => t.key === "chairman");

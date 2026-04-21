@@ -181,21 +181,51 @@ ${coreValues.join(', ')}
 **Observations:**
 ${observationsText}
 
-For each value, provide:
-1. Alignment score (0-10)
-2. Specific examples from observations that demonstrate the value`;
+Return a JSON object keyed by value name. Each entry has:
+- score: number 0-10
+- examples: array of 1-3 short observation excerpts that demonstrate the value
+
+Return only the JSON object — no prose.`;
+
+  // Build a JSON schema that requires each core value as a top-level key so
+  // the downstream parser gets a predictable shape.
+  const valueProps: Record<string, unknown> = {};
+  for (const value of coreValues) {
+    valueProps[value] = {
+      type: "object",
+      properties: {
+        score: { type: "number" },
+        examples: { type: "array", items: { type: "string" } },
+      },
+      required: ["score", "examples"],
+      additionalProperties: false,
+    };
+  }
 
   const response = await invokeLLM({
     messages: [
       {
         role: "system",
-        content: "You are an expert at assessing values alignment from behavioral observations."
+        content: "You are an expert at assessing values alignment from behavioral observations. Respond with strictly-structured JSON."
       },
       {
         role: "user",
         content: prompt
       }
-    ]
+    ],
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: "values_alignment",
+        strict: true,
+        schema: {
+          type: "object",
+          properties: valueProps,
+          required: coreValues,
+          additionalProperties: false,
+        },
+      },
+    },
   });
 
   const content = response.choices[0]?.message?.content;

@@ -166,13 +166,14 @@ function routeQuery(expandedQuery: string[]): string[] {
   }
 
   // Governance sources — added in Phase 4.1
+  // "mandate" lives in mandate_journals; do NOT route it here too, otherwise a
+  // single query fans out to two sources and doubles retrieval cost.
   if (
     queryText.includes("perception") ||
     queryText.includes("gap") ||
     queryText.includes("chairman") ||
     queryText.includes("self-rating") ||
-    queryText.includes("assessment") ||
-    queryText.includes("mandate")
+    queryText.includes("assessment")
   ) {
     sources.push("governance_assessments");
   }

@@ -343,10 +343,11 @@ export default function Admin() {
               value={challengeFilter}
               onValueChange={(v) => {
                 setChallengeFilter(v as typeof challengeFilter);
-                // Clear expansion + draft notes so state from a different filter
-                // doesn't leak into the new list.
+                // Collapse the expanded row so a stale id doesn't match a
+                // different challenge in the new list. Preserve resolutionText
+                // so a user composing a note doesn't lose their draft when they
+                // briefly switch filters.
                 setExpandedChallenge(null);
-                setResolutionText({});
               }}
             >
               <SelectTrigger className="w-40">
