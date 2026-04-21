@@ -67,31 +67,33 @@ export default function DashboardLayout({
   const { loading, user } = useAuth();
   const [, navigate] = useLocation();
 
-  // Check if onboarding is needed
-  const { data: onboardingStatus, isLoading: onboardingLoading, isError: onboardingError } =
-    trpc.preferences.checkOnboarding.useQuery(undefined, { enabled: !!user });
+  // Check if onboarding is needed. `retry: 1` so a single flaky preferences
+  // call doesn't keep `isLoading` true through 3+ retries and leave users
+  // staring at the skeleton.
+  const { data: onboardingStatus, isLoading: onboardingLoading } =
+    trpc.preferences.checkOnboarding.useQuery(undefined, { enabled: !!user, retry: 1 });
 
   useEffect(() => {
     localStorage.setItem(SIDEBAR_WIDTH_KEY, sidebarWidth.toString());
   }, [sidebarWidth]);
 
   useEffect(() => {
-    // Redirect to /onboarding unless we have explicit confirmation that
-    // onboarding is complete. If the query errored or returned null, we
-    // still redirect — better to show the wizard than trap the user.
+    // Only redirect when we have an *explicit* "not completed" response from
+    // the backend. If the query errored or returned null, stay on the current
+    // page — existing users (pre-onboarding-feature) have no preferences row
+    // and should not be bounced into a wizard they've already finished.
     if (!user) return;
     if (onboardingLoading) return;
-    const isComplete = !!onboardingStatus && onboardingStatus.completed === true;
-    if (!isComplete && !onboardingError) {
-      // Query settled. If not complete, redirect.
-      navigate("/onboarding");
-    } else if (onboardingError) {
-      // Query failed; redirect so the user isn't stuck in an unstyled limbo
+    if (onboardingStatus && onboardingStatus.completed === false) {
       navigate("/onboarding");
     }
-  }, [user, onboardingLoading, onboardingStatus, onboardingError, navigate]);
+  }, [user, onboardingLoading, onboardingStatus, navigate]);
 
-  if (loading || (user && onboardingLoading)) {
+  // Only gate on the auth check. The onboarding query is allowed to resolve
+  // in the background; if it eventually returns "not completed", the effect
+  // above redirects. A flaky preferences call should not keep the skeleton
+  // on screen indefinitely.
+  if (loading) {
     return <DashboardLayoutSkeleton />
   }
 

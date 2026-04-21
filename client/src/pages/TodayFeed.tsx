@@ -5,7 +5,15 @@ import { Bell, TrendingUp, Users, Target, Calendar, Plus } from "lucide-react";
 import { Link } from "wouter";
 
 export default function TodayFeed() {
-  const { data: profile, isLoading: profileLoading } = trpc.person.getMyProfile.useQuery();
+  // `retry: 1` so a flaky profile call doesn't keep the skeleton visible
+  // through 3+ retries. `isError` lets us render a fallback instead of
+  // spinning forever when the query returns a real error.
+  const {
+    data: profile,
+    isLoading: profileLoading,
+    isError: profileError,
+    error: profileErrorObj,
+  } = trpc.person.getMyProfile.useQuery(undefined, { retry: 1 });
   const { data: notifications } = trpc.notification.getMyNotifications.useQuery({ tenantId: 1, limit: 10 });
   const { data: directReports } = trpc.person.getDirectReports.useQuery();
   const { data: recentObservations } = trpc.observation.getRecent.useQuery({ tenantId: 1, limit: 5 });
@@ -15,6 +23,25 @@ export default function TodayFeed() {
       <div className="space-y-6">
         <div className="skeleton h-32 w-full"></div>
         <div className="skeleton h-64 w-full"></div>
+      </div>
+    );
+  }
+
+  if (profileError) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Welcome</h1>
+          <p className="text-muted-foreground">
+            We couldn't load your profile. {profileErrorObj?.message ?? ""}
+          </p>
+        </div>
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground">
+            Try refreshing the page. If the problem persists, ask an admin to confirm your account
+            has been set up in the tenant.
+          </CardContent>
+        </Card>
       </div>
     );
   }
