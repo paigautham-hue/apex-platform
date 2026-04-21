@@ -727,3 +727,14 @@
 - [x] Link to /settings/notifications (Notification Preferences)
 - [x] Link to /settings/access-grants (Access Grants)
 - [x] Link to /settings/access-challenge (Access Challenge)
+
+## Feature: Real Team Data Import ✅
+
+- [x] Analyse Excel data structure (23 team members, 6 columns)
+- [x] Understand current DB schema (tenants, orgUnits, persons, roles)
+- [x] Write migration script to clean dummy/sample data
+- [x] Insert 17 unique companies as org units under Manipal Group tenant
+- [x] Insert 22 real team members with roles and company assignments (Sagar deduplicated)
+- [x] Handle duplicate (Sagar appears twice - merged to single record)
+- [x] Verify all 3 owner emails - gpai@msn.com promoted to admin, others will be admin on first login
+- [x] Verify data in database - 22 persons, 17 org units, 22 roles all correct
