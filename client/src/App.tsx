@@ -35,6 +35,9 @@ import GovernanceAdmin from "./pages/GovernanceAdmin";
 import ThreeSixty from "./pages/ThreeSixty";
 import FinancialCockpit from "./pages/FinancialCockpit";
 import Onboarding from "./pages/Onboarding";
+import Me from "./pages/Me";
+import Team from "./pages/Team";
+import Group from "./pages/Group";
 
 function Router() {
   return (
@@ -52,6 +55,26 @@ function Router() {
         </DashboardLayout>
       </Route>
 
+      {/* Universal fractal pages — same UI, role-scoped data */}
+      <Route path="/me">
+        <DashboardLayout>
+          <Me />
+        </DashboardLayout>
+      </Route>
+
+      <Route path="/team">
+        <DashboardLayout>
+          <Team />
+        </DashboardLayout>
+      </Route>
+
+      <Route path="/group">
+        <DashboardLayout>
+          <Group />
+        </DashboardLayout>
+      </Route>
+
+      {/* Legacy routes — kept for direct links; render existing pages */}
       <Route path="/my-bridge">
         <DashboardLayout>
           <MyBridge />

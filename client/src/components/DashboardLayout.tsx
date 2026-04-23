@@ -23,30 +23,42 @@ import {
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import NotificationCenter from "./NotificationCenter";
-import { Home, Users, Target, BarChart3, MessageSquare, Calendar, Settings, LogOut, PanelLeft, Plus, Brain, FileText, DollarSign, Lightbulb, Anchor, Palmtree, Ship, Settings2, UsersRound, Bell, ShieldAlert, KeyRound, ChevronDown } from "lucide-react";
+import { Home, Users, Target, BarChart3, MessageSquare, Calendar, Settings, LogOut, PanelLeft, Plus, Brain, FileText, DollarSign, Lightbulb, Anchor, Palmtree, Ship, Settings2, UsersRound, Bell, ShieldAlert, KeyRound, ChevronDown, User as UserIcon, Network, Mic } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
+import { useViewer, canAccessTeamView, canAccessGroupView } from "@/hooks/useViewer";
 
-const menuItems = [
+// Primary fractal nav (always visible, conditionally enabled)
+const primaryNav = [
+  { icon: UserIcon, label: "Me", path: "/me", always: true },
+  { icon: UsersRound, label: "Team", path: "/team", requiresTeam: true },
+  { icon: Network, label: "Group", path: "/group", requiresGroup: true },
+];
+
+// Action nav — quick capture
+const actionNav = [
+  { icon: Mic, label: "Capture", path: "/capture?voice=true" },
+];
+
+// Secondary nav — everything else, grouped
+const secondaryNav = [
   { icon: Home, label: "Today", path: "/today" },
-  { icon: Anchor, label: "My Bridge", path: "/my-bridge" },
-  { icon: Palmtree, label: "My Island", path: "/my-island" },
-  { icon: Ship, label: "Chairman", path: "/chairman" },
-  { icon: Ship, label: "Chairman Assess", path: "/chairman/assess" },
-  { icon: UsersRound, label: "360 Feedback", path: "/360" },
-  { icon: DollarSign, label: "Financial Cockpit", path: "/financial-cockpit" },
-  { icon: Settings2, label: "Governance Admin", path: "/governance-admin" },
   { icon: Users, label: "People", path: "/people" },
-  { icon: Plus, label: "Capture", path: "/capture" },
+  { icon: DollarSign, label: "Financial Cockpit", path: "/financial-cockpit" },
+  { icon: UsersRound, label: "360 Feedback", path: "/360" },
+  { icon: Calendar, label: "Meetings", path: "/meetings" },
   { icon: Brain, label: "AI Ask", path: "/ask" },
   { icon: Target, label: "Goals", path: "/goals" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: DollarSign, label: "Incentives", path: "/incentives" },
   { icon: Lightbulb, label: "Reflections", path: "/reflections" },
   { icon: FileText, label: "Decisions", path: "/decisions" },
-  { icon: Calendar, label: "Meetings", path: "/meetings" },
+];
+
+const adminNav = [
+  { icon: Settings2, label: "Governance Admin", path: "/governance-admin" },
   { icon: Settings, label: "Admin", path: "/admin" },
 ];
 
@@ -227,8 +239,12 @@ function DashboardLayoutContent({
   const isCollapsed = state === "collapsed";
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
-  const activeMenuItem = menuItems.find(item => item.path === location);
+  const allItems = [...primaryNav, ...actionNav, ...secondaryNav, ...adminNav];
+  const activeMenuItem = allItems.find(item => item.path === location);
   const isMobile = useIsMobile();
+  const { viewer } = useViewer();
+  const showTeam = canAccessTeamView(viewer?.tier, viewer && viewer.directReportPersonIds.length > 0);
+  const showGroup = canAccessGroupView(viewer?.tier, viewer?.isFundWide);
 
   useEffect(() => {
     if (isCollapsed) {
@@ -294,8 +310,56 @@ function DashboardLayoutContent({
           </SidebarHeader>
 
           <SidebarContent className="gap-0">
+            {/* Primary fractal nav */}
             <SidebarMenu className="px-2 py-1">
-              {menuItems.map(item => {
+              {primaryNav
+                .filter(item => {
+                  if (item.always) return true;
+                  if (item.requiresTeam) return showTeam;
+                  if (item.requiresGroup) return showGroup;
+                  return true;
+                })
+                .map(item => {
+                  const isActive = location === item.path;
+                  return (
+                    <SidebarMenuItem key={item.path}>
+                      <SidebarMenuButton
+                        isActive={isActive}
+                        onClick={() => setLocation(item.path)}
+                        tooltip={item.label}
+                        className="h-10 transition-all font-medium"
+                      >
+                        <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
+                        <span>{item.label}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  );
+                })}
+            </SidebarMenu>
+
+            {/* Action: voice capture */}
+            <SidebarMenu className="px-2 py-1 border-t border-border/50 mt-2">
+              {actionNav.map(item => {
+                const isActive = location === item.path.split("?")[0];
+                return (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton
+                      isActive={isActive}
+                      onClick={() => setLocation(item.path)}
+                      tooltip={item.label}
+                      className="h-10 transition-all font-medium text-teal-600 dark:text-teal-400"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+
+            {/* Secondary nav */}
+            <SidebarMenu className="px-2 py-1 border-t border-border/50 mt-2">
+              {secondaryNav.map(item => {
                 const isActive = location === item.path;
                 return (
                   <SidebarMenuItem key={item.path}>
@@ -303,11 +367,9 @@ function DashboardLayoutContent({
                       isActive={isActive}
                       onClick={() => setLocation(item.path)}
                       tooltip={item.label}
-                      className={`h-10 transition-all font-normal`}
+                      className="h-9 transition-all font-normal"
                     >
-                      <item.icon
-                        className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
-                      />
+                      <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
                       <span>{item.label}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -316,6 +378,26 @@ function DashboardLayoutContent({
 
               {/* Settings Submenu */}
               <SettingsSubmenu location={location} setLocation={setLocation} isCollapsed={isCollapsed} />
+            </SidebarMenu>
+
+            {/* Admin nav */}
+            <SidebarMenu className="px-2 py-1 border-t border-border/50 mt-2">
+              {adminNav.map(item => {
+                const isActive = location === item.path;
+                return (
+                  <SidebarMenuItem key={item.path}>
+                    <SidebarMenuButton
+                      isActive={isActive}
+                      onClick={() => setLocation(item.path)}
+                      tooltip={item.label}
+                      className="h-9 transition-all font-normal text-muted-foreground"
+                    >
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarContent>
 

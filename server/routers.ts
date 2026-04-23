@@ -7,6 +7,7 @@ import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
 import { processAskQuery, getSuggestedQueries } from "./ai-ask";
 import { accessControlRouter } from "./routers/accessControl";
 import { preferencesRouter } from "./routers/preferences";
+import { scopeRouter } from "./routers/scope";
 import { processUploadedFile } from "./ai-extraction";
 import * as db from "./db";
 import * as governanceNotifications from "./governance-notifications";
@@ -1449,6 +1450,13 @@ export const appRouter = router({
     }),
   }),
 
+  // Fractal scope router — viewer/landing/team/org-tree resolution
+  scope: scopeRouter,
+
+  // Access control + preferences
+  accessControl: accessControlRouter,
+  preferences: preferencesRouter,
+
   // Feature routers
   tenant: tenantRouter,
   person: personRouter,
@@ -1555,10 +1563,6 @@ export const appRouter = router({
   }),
   
   // AI Ask router
-  // Access Control & Preferences
-  accessControl: accessControlRouter,
-  preferences: preferencesRouter,
-
   ask: router({
     query: protectedProcedure
       .input(z.object({

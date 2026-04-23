@@ -3,25 +3,37 @@ import { Button } from "@/components/ui/button";
 import { getLoginUrl } from "@/const";
 import { useLocation } from "wouter";
 import { useEffect } from "react";
-import { 
-  Target, 
-  Users, 
-  TrendingUp, 
-  Award, 
-  Brain, 
-  Shield 
+import { trpc } from "@/lib/trpc";
+import {
+  Target,
+  Users,
+  TrendingUp,
+  Award,
+  Brain,
+  Shield
 } from "lucide-react";
 
 export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, setLocation] = useLocation();
 
-  // Redirect authenticated users to Today Feed
+  // Resolve viewer scope to determine landing path (fractal: me/team/group)
+  const { data: viewer } = trpc.scope.getViewer.useQuery(undefined, {
+    enabled: isAuthenticated && !loading,
+    retry: 1,
+  });
+
+  // Redirect authenticated users to their preferred landing
   useEffect(() => {
-    if (isAuthenticated && !loading) {
-      setLocation("/today");
+    if (!isAuthenticated || loading) return;
+    if (viewer) {
+      const path = viewer.defaultLanding ?? "me";
+      setLocation(path === "today" ? "/today" : `/${path}`);
+    } else {
+      // Fallback while viewer scope is loading or unavailable
+      // Don't redirect to /today aggressively — let viewer load first
     }
-  }, [isAuthenticated, loading, setLocation]);
+  }, [isAuthenticated, loading, viewer, setLocation]);
 
   if (loading) {
     return (

@@ -240,7 +240,7 @@ export const selfReflections = mysqlTable("selfReflections", {
   autoTags: json("autoTags").$type<{ valueTags: string[]; performanceTags: string[] }>(),
   corroborationStatus: mysqlEnum("corroborationStatus", ["PENDING", "CORROBORATED", "SELF_ONLY"]).default("PENDING"),
   corroboratedBy: json("corroboratedBy").$type<{ evidenceIds: number[]; observationIds: number[] }>(),
-  visibility: mysqlEnum("visibility", ["PRIVATE_DRAFT", "SHARED_WITH_MANAGER", "INCLUDED_IN_REVIEW"]).default("PRIVATE_DRAFT"),
+  visibility: mysqlEnum("visibility", ["PRIVATE_FOREVER", "PRIVATE_DRAFT", "SHARED_WITH_MANAGER", "INCLUDED_IN_REVIEW"]).default("PRIVATE_DRAFT"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
@@ -450,16 +450,21 @@ export const notifications = mysqlTable("notifications", {
   id: int("id").autoincrement().primaryKey(),
   tenantId: int("tenantId").notNull(),
   personId: int("personId").notNull(),
-  type: mysqlEnum("type", ["PRIORITY_ZERO", "INSIGHT", "REMINDER", "MILESTONE", "PULSE_CHECK", "ACHIEVEMENT_SUGGESTION"]).notNull(),
+  type: mysqlEnum("type", ["PRIORITY_ZERO", "INSIGHT", "REMINDER", "MILESTONE", "PULSE_CHECK", "ACHIEVEMENT_SUGGESTION", "CYCLE_OPEN", "CYCLE_DEADLINE", "CYCLE_REVEAL", "PERCEPTION_GAP", "MEETING_PREP", "DAILY_FOCUS"]).notNull(),
+  // Tier: digest = bundled into 1 daily summary; instant = push immediately; quiet = only in-app
+  tier: mysqlEnum("tier", ["INSTANT", "DIGEST", "QUIET"]).default("DIGEST"),
   title: varchar("title", { length: 255 }).notNull(),
   body: text("body").notNull(),
   actionUrl: text("actionUrl"),
   isRead: boolean("isRead").default(false),
+  // For digest tier: when bundled, what date was it included in
+  digestedOn: varchar("digestedOn", { length: 10 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => ({
   tenantIdx: index("notifications_tenantId_idx").on(table.tenantId),
   personIdx: index("notifications_personId_idx").on(table.personId),
   isReadIdx: index("notifications_isRead_idx").on(table.isRead),
+  tierIdx: index("notifications_tier_idx").on(table.tier),
 }));
 
 // ============================================================================
@@ -544,6 +549,11 @@ export const feedbackTypes = mysqlTable("feedbackTypes", {
   cadence: mysqlEnum("cadence", ["MONTHLY", "QUARTERLY", "SEMI_ANNUAL", "ANNUAL"]).default("MONTHLY"),
   isActive: boolean("isActive").default(true),
   sortOrder: int("sortOrder").default(0),
+  // Fractal: which role tiers may USE this feedback type as assessor
+  // null = anyone with assignment; otherwise list like ["CHAIRMAN","GROUP_CEO","CEO","CXO"]
+  assessorRoleScope: json("assessorRoleScope").$type<string[]>(),
+  // Auto-reveal threshold: if X% of expected assessors submit by deadline, reveal anyway
+  autoRevealThresholdPct: int("autoRevealThresholdPct").default(80),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => ({
   tenantIdx: index("feedbackTypes_tenantId_idx").on(table.tenantId),
@@ -709,11 +719,24 @@ export const aiInsights = mysqlTable("aiInsights", {
   insightText: text("insightText").notNull(),
   severity: mysqlEnum("severity", ["INFO", "WARNING", "CRITICAL"]).default("INFO"),
   metadata: json("metadata").$type<Record<string, any>>(),
+  // Fractal scope routing
+  scope: mysqlEnum("scope", ["FUND", "COMPANY", "FUNCTION", "TEAM", "INDIVIDUAL"]).default("FUND"),
+  // Which person(s) should see this card surfaced — null = scope-default routing
+  surfaceToPersonIds: json("surfaceToPersonIds").$type<number[]>(),
+  // Drives Primary Action Card ranking (0-100)
+  urgency: int("urgency").default(50),
+  // Lifecycle
+  status: mysqlEnum("status", ["NEW", "VIEWED", "SNOOZED", "ADDRESSED", "DISMISSED"]).default("NEW"),
+  snoozedUntil: timestamp("snoozedUntil"),
+  addressedAt: timestamp("addressedAt"),
+  addressedByPersonId: int("addressedByPersonId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 }, (table) => ({
   tenantIdx: index("aiInsights_tenantId_idx").on(table.tenantId),
   cycleIdx: index("aiInsights_cycleId_idx").on(table.cycleId),
   typeIdx: index("aiInsights_insightType_idx").on(table.insightType),
+  scopeIdx: index("aiInsights_scope_idx").on(table.scope),
+  statusIdx: index("aiInsights_status_idx").on(table.status),
 }));
 
 // ============================================================================
@@ -891,6 +914,13 @@ export const userPreferences = mysqlTable("userPreferences", {
   // Onboarding
   onboardingCompleted: boolean("onboardingCompleted").default(false).notNull(),
   onboardingCompletedAt: timestamp("onboardingCompletedAt"),
+  // Fractal landing — auto-set by role detection but user-overridable
+  defaultLandingPath: mysqlEnum("defaultLandingPath", ["me", "team", "group", "today"]).default("me").notNull(),
+  // Voice & UX preferences
+  voiceFirstCapture: boolean("voiceFirstCapture").default(true).notNull(),
+  dailyFocusEnabled: boolean("dailyFocusEnabled").default(true).notNull(),
+  weeklyPulseEnabled: boolean("weeklyPulseEnabled").default(true).notNull(),
+  preferredVoiceLocale: varchar("preferredVoiceLocale", { length: 10 }).default("en-IN").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 }, (table) => ({
@@ -899,3 +929,250 @@ export const userPreferences = mysqlTable("userPreferences", {
 
 export type UserPreferences = typeof userPreferences.$inferSelect;
 export type InsertUserPreferences = typeof userPreferences.$inferInsert;
+
+// ============================================================================
+// TRUST LAYER — entry view audit ("who saw my journal")
+// ============================================================================
+
+export const entryViews = mysqlTable("entryViews", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  viewerPersonId: int("viewerPersonId").notNull(),
+  entityType: varchar("entityType", { length: 50 }).notNull(),
+  entityId: int("entityId").notNull(),
+  // The owner of the entity (so they can see who viewed)
+  ownerPersonId: int("ownerPersonId").notNull(),
+  viewedAt: timestamp("viewedAt").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("entryViews_tenantId_idx").on(table.tenantId),
+  ownerIdx: index("entryViews_ownerPersonId_idx").on(table.ownerPersonId),
+  entityIdx: index("entryViews_entityType_entityId_idx").on(table.entityType, table.entityId),
+}));
+
+export type EntryView = typeof entryViews.$inferSelect;
+export type InsertEntryView = typeof entryViews.$inferInsert;
+
+// ============================================================================
+// RHYTHM LAYER — daily focus surfacing log
+// ============================================================================
+
+export const dailyFocusLog = mysqlTable("dailyFocusLog", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  personId: int("personId").notNull(),
+  focusDate: varchar("focusDate", { length: 10 }).notNull(),
+  // The action card surfaced
+  primaryActionType: varchar("primaryActionType", { length: 50 }).notNull(),
+  primaryActionPayload: json("primaryActionPayload").$type<Record<string, any>>(),
+  primaryActionInsightId: int("primaryActionInsightId"),
+  // Engagement
+  surfacedAt: timestamp("surfacedAt").defaultNow().notNull(),
+  viewedAt: timestamp("viewedAt"),
+  actedAt: timestamp("actedAt"),
+  dismissedAt: timestamp("dismissedAt"),
+}, (table) => ({
+  tenantIdx: index("dailyFocusLog_tenantId_idx").on(table.tenantId),
+  personIdx: index("dailyFocusLog_personId_idx").on(table.personId),
+  dateIdx: index("dailyFocusLog_focusDate_idx").on(table.focusDate),
+}));
+
+export type DailyFocusLog = typeof dailyFocusLog.$inferSelect;
+export type InsertDailyFocusLog = typeof dailyFocusLog.$inferInsert;
+
+// ============================================================================
+// VOICE SESSIONS — live conversation transcripts (Meridian pattern)
+// ============================================================================
+
+export const voiceSessions = mysqlTable("voiceSessions", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  personId: int("personId").notNull(),
+  sessionType: mysqlEnum("sessionType", ["JOURNAL", "PULSE", "ASSESSMENT", "ASK", "MEETING_PREP"]).notNull(),
+  startedAt: timestamp("startedAt").defaultNow().notNull(),
+  endedAt: timestamp("endedAt"),
+  durationSeconds: int("durationSeconds"),
+  transcript: text("transcript"),
+  summary: text("summary"),
+  topicsDiscussed: json("topicsDiscussed").$type<string[]>(),
+  // What the bot wrote / actions taken
+  resultingEntityIds: json("resultingEntityIds").$type<Array<{ type: string; id: number }>>(),
+  // Context the bot had
+  scopeContext: mysqlEnum("scopeContext", ["FUND", "COMPANY", "FUNCTION", "TEAM", "INDIVIDUAL"]).default("INDIVIDUAL"),
+}, (table) => ({
+  tenantIdx: index("voiceSessions_tenantId_idx").on(table.tenantId),
+  personIdx: index("voiceSessions_personId_idx").on(table.personId),
+  typeIdx: index("voiceSessions_sessionType_idx").on(table.sessionType),
+}));
+
+export type VoiceSession = typeof voiceSessions.$inferSelect;
+export type InsertVoiceSession = typeof voiceSessions.$inferInsert;
+
+// ============================================================================
+// AGENTIC MEMORY — Meridian hybrid retrieval pattern
+// ============================================================================
+
+export const agenticMemories = mysqlTable("agenticMemories", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  // Who/what this memory is about
+  subjectPersonId: int("subjectPersonId"),
+  subjectOrgUnitId: int("subjectOrgUnitId"),
+  // Semantic scope routing
+  orgScope: mysqlEnum("orgScope", ["FUND", "COMPANY", "FUNCTION", "TEAM", "INDIVIDUAL"]).default("INDIVIDUAL"),
+  category: mysqlEnum("category", ["PREFERENCE", "FACT", "PATTERN", "INSIGHT", "COMMITMENT", "RELATIONSHIP"]).notNull(),
+  memoryKey: varchar("memoryKey", { length: 200 }).notNull(),
+  memoryValue: text("memoryValue").notNull(),
+  rationale: text("rationale"),
+  citations: json("citations").$type<Array<{ type: string; id: number; quote?: string }>>(),
+  // Retrieval signals
+  embeddingVector: json("embeddingVector").$type<number[]>(),
+  confidence: decimal("confidence", { precision: 3, scale: 2 }).default("0.70").notNull(),
+  // Lifecycle
+  verified: boolean("verified").default(false),
+  needsVerification: boolean("needsVerification").default(true),
+  verifiedAt: timestamp("verifiedAt"),
+  verifiedByPersonId: int("verifiedByPersonId"),
+  expiresAt: timestamp("expiresAt"),
+  sourceHash: varchar("sourceHash", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("agenticMemories_tenantId_idx").on(table.tenantId),
+  subjectPersonIdx: index("agenticMemories_subjectPersonId_idx").on(table.subjectPersonId),
+  subjectOrgIdx: index("agenticMemories_subjectOrgUnitId_idx").on(table.subjectOrgUnitId),
+  scopeIdx: index("agenticMemories_orgScope_idx").on(table.orgScope),
+  categoryIdx: index("agenticMemories_category_idx").on(table.category),
+}));
+
+export type AgenticMemory = typeof agenticMemories.$inferSelect;
+export type InsertAgenticMemory = typeof agenticMemories.$inferInsert;
+
+// ============================================================================
+// AI PERSONA CONFIGS — multi-persona deliberation (Assay pattern)
+// ============================================================================
+
+export const aiPersonaConfigs = mysqlTable("aiPersonaConfigs", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  key: varchar("key", { length: 50 }).notNull(),
+  label: varchar("label", { length: 100 }).notNull(),
+  description: text("description"),
+  systemPrompt: text("systemPrompt").notNull(),
+  // Which assessor tiers can deploy this persona
+  availableForRoleTypes: json("availableForRoleTypes").$type<string[]>(),
+  modelId: varchar("modelId", { length: 100 }).default("claude-opus-4-7"),
+  isActive: boolean("isActive").default(true),
+  sortOrder: int("sortOrder").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("aiPersonaConfigs_tenantId_idx").on(table.tenantId),
+  keyIdx: index("aiPersonaConfigs_key_idx").on(table.key),
+}));
+
+export type AiPersonaConfig = typeof aiPersonaConfigs.$inferSelect;
+export type InsertAiPersonaConfig = typeof aiPersonaConfigs.$inferInsert;
+
+// ============================================================================
+// AI DELIBERATIONS — output of multi-persona panel runs
+// ============================================================================
+
+export const aiDeliberations = mysqlTable("aiDeliberations", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  cycleId: int("cycleId"),
+  targetType: mysqlEnum("targetType", ["ROLE", "COMPANY", "PERSON"]).notNull(),
+  targetId: int("targetId").notNull(),
+  triggeredByPersonId: int("triggeredByPersonId").notNull(),
+  // Per-persona verdicts
+  personaVerdicts: json("personaVerdicts").$type<Array<{ personaKey: string; verdict: string; confidence: number; cited: any[] }>>(),
+  // Synthesis
+  synthesis: text("synthesis"),
+  recommendedActions: json("recommendedActions").$type<string[]>(),
+  status: mysqlEnum("status", ["RUNNING", "COMPLETE", "FAILED"]).default("RUNNING"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  completedAt: timestamp("completedAt"),
+}, (table) => ({
+  tenantIdx: index("aiDeliberations_tenantId_idx").on(table.tenantId),
+  targetIdx: index("aiDeliberations_targetType_targetId_idx").on(table.targetType, table.targetId),
+  triggeredByIdx: index("aiDeliberations_triggeredByPersonId_idx").on(table.triggeredByPersonId),
+}));
+
+export type AiDeliberation = typeof aiDeliberations.$inferSelect;
+export type InsertAiDeliberation = typeof aiDeliberations.$inferInsert;
+
+// ============================================================================
+// CALENDAR INTEGRATION — Meridian pattern
+// ============================================================================
+
+export const calendarTokens = mysqlTable("calendarTokens", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  userId: int("userId").notNull(),
+  provider: mysqlEnum("provider", ["GOOGLE", "OUTLOOK"]).notNull(),
+  email: varchar("email", { length: 320 }),
+  accessToken: text("accessToken").notNull(),
+  refreshToken: text("refreshToken"),
+  expiresAt: timestamp("expiresAt"),
+  scope: text("scope"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("calendarTokens_tenantId_idx").on(table.tenantId),
+  userIdx: index("calendarTokens_userId_idx").on(table.userId),
+  uniq: unique("calendarTokens_user_provider_uniq").on(table.userId, table.provider),
+}));
+
+export type CalendarToken = typeof calendarTokens.$inferSelect;
+export type InsertCalendarToken = typeof calendarTokens.$inferInsert;
+
+// Cached calendar events — drives meeting prep cards
+export const calendarEvents = mysqlTable("calendarEvents", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  userId: int("userId").notNull(),
+  provider: mysqlEnum("provider", ["GOOGLE", "OUTLOOK"]).notNull(),
+  externalId: varchar("externalId", { length: 255 }).notNull(),
+  title: text("title"),
+  description: text("description"),
+  startAt: timestamp("startAt").notNull(),
+  endAt: timestamp("endAt"),
+  attendees: json("attendees").$type<Array<{ email: string; name?: string; personId?: number }>>(),
+  // Auto-linked APEX entities
+  linkedPersonIds: json("linkedPersonIds").$type<number[]>(),
+  linkedMeetingId: int("linkedMeetingId"),
+  syncedAt: timestamp("syncedAt").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("calendarEvents_tenantId_idx").on(table.tenantId),
+  userIdx: index("calendarEvents_userId_idx").on(table.userId),
+  startIdx: index("calendarEvents_startAt_idx").on(table.startAt),
+  uniq: unique("calendarEvents_provider_external_uniq").on(table.provider, table.externalId),
+}));
+
+export type CalendarEvent = typeof calendarEvents.$inferSelect;
+export type InsertCalendarEvent = typeof calendarEvents.$inferInsert;
+
+// ============================================================================
+// SHARE LINKS — view-only board pack sharing (no account needed)
+// ============================================================================
+
+export const shareLinks = mysqlTable("shareLinks", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  createdByUserId: int("createdByUserId").notNull(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  resourceType: varchar("resourceType", { length: 50 }).notNull(),
+  resourceId: int("resourceId").notNull(),
+  expiresAt: timestamp("expiresAt").notNull(),
+  password: varchar("password", { length: 100 }),
+  viewCount: int("viewCount").default(0).notNull(),
+  lastViewedAt: timestamp("lastViewedAt"),
+  revokedAt: timestamp("revokedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("shareLinks_tenantId_idx").on(table.tenantId),
+  tokenIdx: index("shareLinks_token_idx").on(table.token),
+}));
+
+export type ShareLink = typeof shareLinks.$inferSelect;
+export type InsertShareLink = typeof shareLinks.$inferInsert;
