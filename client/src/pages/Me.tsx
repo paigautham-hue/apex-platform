@@ -12,6 +12,7 @@
 import { useViewer, tierLabel } from "@/hooks/useViewer";
 import PrimaryActionCard from "@/components/PrimaryActionCard";
 import CycleStatusBanner from "@/components/CycleStatusBanner";
+import InsightsInbox from "@/components/InsightsInbox";
 import MyBridge from "./MyBridge";
 import MyIsland from "./MyIsland";
 import { Card, CardContent } from "@/components/ui/card";
@@ -76,6 +77,8 @@ export default function Me() {
       <CycleStatusBanner />
 
       <PrimaryActionCard scope="me" viewerPersonId={viewer.personId} viewerName={viewer.personName} />
+
+      <InsightsInbox limit={5} />
 
       {/* Render the substantive workspace */}
       {isCeoLeader ? (

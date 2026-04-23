@@ -23,7 +23,7 @@ import {
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import NotificationCenter from "./NotificationCenter";
-import { Home, Users, Target, BarChart3, MessageSquare, Calendar, Settings, LogOut, PanelLeft, Plus, Brain, FileText, DollarSign, Lightbulb, Anchor, Palmtree, Ship, Settings2, UsersRound, Bell, ShieldAlert, KeyRound, ChevronDown, User as UserIcon, Network, Mic } from "lucide-react";
+import { Home, Users, Target, BarChart3, MessageSquare, Calendar, Settings, LogOut, PanelLeft, Plus, Brain, FileText, DollarSign, Lightbulb, Anchor, Palmtree, Ship, Settings2, UsersRound, Bell, ShieldAlert, KeyRound, ChevronDown, User as UserIcon, Network, Mic, ShieldCheck } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -50,6 +50,7 @@ const secondaryNav = [
   { icon: UsersRound, label: "360 Feedback", path: "/360" },
   { icon: Calendar, label: "Meetings", path: "/meetings" },
   { icon: Brain, label: "AI Ask", path: "/ask" },
+  { icon: ShieldCheck, label: "Trust Inbox", path: "/trust" },
   { icon: Target, label: "Goals", path: "/goals" },
   { icon: BarChart3, label: "Analytics", path: "/analytics" },
   { icon: DollarSign, label: "Incentives", path: "/incentives" },

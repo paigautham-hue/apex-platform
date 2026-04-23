@@ -11,6 +11,9 @@ import { scopeRouter } from "./routers/scope";
 import { voiceRouter } from "./routers/voice";
 import { deliberationRouter } from "./routers/deliberation";
 import { rhythmRouter } from "./routers/rhythm";
+import { insightsRouter } from "./routers/insights";
+import { trustRouter } from "./routers/trust";
+import { memoryRouter } from "./routers/memory";
 import { processUploadedFile } from "./ai-extraction";
 import * as db from "./db";
 import * as governanceNotifications from "./governance-notifications";
@@ -1482,6 +1485,15 @@ export const appRouter = router({
 
   // Rhythm Layer — daily focus, deadline reminders
   rhythm: rhythmRouter,
+
+  // Insight Engine — scope-aware insight cards + lifecycle (snooze/address)
+  insights: insightsRouter,
+
+  // Trust Layer — entry view audit
+  trust: trustRouter,
+
+  // Agentic memory — hybrid retrieval, verification UX
+  memory: memoryRouter,
 
   // Access control + preferences
   accessControl: accessControlRouter,

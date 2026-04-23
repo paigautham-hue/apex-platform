@@ -38,6 +38,7 @@ import Onboarding from "./pages/Onboarding";
 import Me from "./pages/Me";
 import Team from "./pages/Team";
 import Group from "./pages/Group";
+import TrustInbox from "./pages/TrustInbox";
 
 function Router() {
   return (
@@ -71,6 +72,12 @@ function Router() {
       <Route path="/group">
         <DashboardLayout>
           <Group />
+        </DashboardLayout>
+      </Route>
+
+      <Route path="/trust">
+        <DashboardLayout>
+          <TrustInbox />
         </DashboardLayout>
       </Route>
 
