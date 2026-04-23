@@ -914,8 +914,10 @@ export const userPreferences = mysqlTable("userPreferences", {
   // Onboarding
   onboardingCompleted: boolean("onboardingCompleted").default(false).notNull(),
   onboardingCompletedAt: timestamp("onboardingCompletedAt"),
-  // Fractal landing — auto-set by role detection but user-overridable
-  defaultLandingPath: mysqlEnum("defaultLandingPath", ["me", "team", "group", "today"]).default("me").notNull(),
+  // Fractal landing — auto-set by role detection but user-overridable.
+  // Null = use tier-computed default (Chairman→group, leader→team, IC→me).
+  defaultLandingPath: mysqlEnum("defaultLandingPath", ["me", "team", "group", "today"]),
+  defaultLandingExplicit: boolean("defaultLandingExplicit").default(false).notNull(),
   // Voice & UX preferences
   voiceFirstCapture: boolean("voiceFirstCapture").default(true).notNull(),
   dailyFocusEnabled: boolean("dailyFocusEnabled").default(true).notNull(),

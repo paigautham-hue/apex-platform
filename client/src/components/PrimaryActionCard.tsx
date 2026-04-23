@@ -227,18 +227,18 @@ export default function PrimaryActionCard({ scope, viewerPersonId, viewerName }:
   }, [activeCycle, myJournals, myAssessments, profile, scope, viewerName, cycleId, serverFocus]);
 
   const accentClasses = {
-    red: "border-red-500/40 bg-red-500/5",
-    amber: "border-amber-500/40 bg-amber-500/5",
-    teal: "border-teal-500/40 bg-teal-500/5",
-    violet: "border-violet-500/40 bg-violet-500/5",
+    red: "border-red-500/50 bg-red-500/10 dark:bg-red-500/15",
+    amber: "border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/15",
+    teal: "border-teal-500/50 bg-teal-500/10 dark:bg-teal-500/15",
+    violet: "border-violet-500/50 bg-violet-500/10 dark:bg-violet-500/15",
     neutral: "border-border bg-card",
   }[action.accent];
 
   const iconClasses = {
-    red: "text-red-500",
-    amber: "text-amber-500",
-    teal: "text-teal-500",
-    violet: "text-violet-500",
+    red: "text-red-700 dark:text-red-300",
+    amber: "text-amber-700 dark:text-amber-300",
+    teal: "text-teal-700 dark:text-teal-300",
+    violet: "text-violet-700 dark:text-violet-300",
     neutral: "text-muted-foreground",
   }[action.accent];
 

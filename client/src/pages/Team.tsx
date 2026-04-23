@@ -30,8 +30,15 @@ export default function Team() {
   const [, navigate] = useLocation();
 
   const { data: directReports = [] } = trpc.scope.listDirectReports.useQuery();
+  const { data: teamStatus = [] } = trpc.scope.getTeamSubmissionStatus.useQuery();
   const { data: activeCycle } = trpc.governance.getActiveCycle.useQuery({ tenantId: TENANT_ID });
   const cycleId = activeCycle?.id ?? 0;
+
+  const statusByPerson = useMemo(() => {
+    const m = new Map<number, typeof teamStatus[number]>();
+    for (const s of teamStatus) m.set(s.personId, s);
+    return m;
+  }, [teamStatus]);
 
   if (isLoading) {
     return (
@@ -86,8 +93,7 @@ export default function Team() {
           <DirectReportCard
             key={member.personId}
             member={member}
-            cycleId={cycleId}
-            viewerPersonId={viewer.personId}
+            status={statusByPerson.get(member.personId)}
             onOpen={() => navigate(`/people/${member.personId}`)}
           />
         ))}
@@ -105,38 +111,49 @@ interface MemberRow {
   orgUnitName: string | null;
 }
 
+interface SubmissionStatus {
+  personId: number;
+  status: "SUBMITTED" | "IN_PROGRESS" | "PENDING" | "OVERDUE" | "NO_CYCLE";
+  journaled: boolean;
+  rated: boolean;
+  submitted: boolean;
+  submittedCount: number;
+  totalMandates: number;
+}
+
 function DirectReportCard({
   member,
-  cycleId,
-  viewerPersonId,
+  status,
   onOpen,
 }: {
   member: MemberRow;
-  cycleId: number;
-  viewerPersonId: number;
+  status?: SubmissionStatus;
   onOpen: () => void;
 }) {
-  // Fetch this person's submission status for the active cycle
-  const { data: targetAssessments } = trpc.governance.getAssessmentsForTarget.useQuery(
-    { tenantId: TENANT_ID, cycleId, targetType: "ROLE", targetId: 0 },
-    { enabled: false } // we don't have role id easily; use a leaner endpoint when needed
-  );
-
-  // For now compute simple status from team listing — production would batch-query
-  const submissionState = useMemo(() => {
-    // Without per-person cycle data wired here, default to PENDING badge.
-    // The real status is hydrated from a scope endpoint added in Phase 3.
-    return "PENDING" as "SUBMITTED" | "IN_PROGRESS" | "PENDING" | "OVERDUE";
-  }, [targetAssessments]);
+  // Skip badge entirely if no cycle; otherwise render real status
+  const submissionState = status?.status ?? "PENDING";
+  const showBadge = submissionState !== "NO_CYCLE";
 
   const StateIcon =
-    submissionState === "SUBMITTED" ? CheckCircle2 : submissionState === "OVERDUE" ? AlertCircle : Clock;
+    submissionState === "SUBMITTED"
+      ? CheckCircle2
+      : submissionState === "OVERDUE"
+        ? AlertCircle
+        : submissionState === "IN_PROGRESS"
+          ? Clock
+          : Clock;
   const stateClass =
     submissionState === "SUBMITTED"
-      ? "text-emerald-600 bg-emerald-500/10 border-emerald-500/30"
+      ? "text-emerald-700 dark:text-emerald-400 bg-emerald-500/10 border-emerald-500/40"
       : submissionState === "OVERDUE"
-        ? "text-red-600 bg-red-500/10 border-red-500/30"
-        : "text-amber-600 bg-amber-500/10 border-amber-500/30";
+        ? "text-red-700 dark:text-red-400 bg-red-500/10 border-red-500/40"
+        : submissionState === "IN_PROGRESS"
+          ? "text-sky-700 dark:text-sky-400 bg-sky-500/10 border-sky-500/40"
+          : "text-amber-700 dark:text-amber-400 bg-amber-500/10 border-amber-500/40";
+  const stateLabel =
+    submissionState === "IN_PROGRESS" && status
+      ? `${status.submittedCount}/${status.totalMandates} rated`
+      : submissionState;
 
   return (
     <Card className="hover:border-primary/40 transition-colors">
@@ -160,13 +177,17 @@ function DirectReportCard({
         </div>
 
         <div className="flex items-center justify-between">
-          <Badge variant="outline" className={`text-[10px] gap-1 ${stateClass}`}>
-            <StateIcon className="w-3 h-3" />
-            {submissionState}
-          </Badge>
-          <Button size="sm" variant="ghost" className="gap-1 h-7 text-xs" onClick={onOpen}>
+          {showBadge ? (
+            <Badge variant="outline" className={`text-[10px] gap-1 ${stateClass}`}>
+              <StateIcon className="w-3 h-3" aria-hidden="true" />
+              <span>{stateLabel}</span>
+            </Badge>
+          ) : (
+            <span className="text-[10px] text-muted-foreground">No active cycle</span>
+          )}
+          <Button size="sm" variant="ghost" className="gap-1 h-9 min-h-9 text-xs" onClick={onOpen}>
             Open
-            <ArrowRight className="w-3 h-3" />
+            <ArrowRight className="w-3 h-3" aria-hidden="true" />
           </Button>
         </div>
       </CardContent>

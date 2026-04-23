@@ -10,8 +10,8 @@ import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 import { resolveViewerScope, viewerToOrgScope, type LandingPath } from "../scope";
 import { getDb } from "../db";
-import { userPreferences, persons, orgUnits, roles } from "../../drizzle/schema";
-import { and, eq, inArray } from "drizzle-orm";
+import { userPreferences, persons, orgUnits, roles, governanceAssessments, mandateJournals, governanceCycles, feedbackTypes } from "../../drizzle/schema";
+import { and, eq, inArray, desc } from "drizzle-orm";
 
 const TENANT_ID = 1;
 
@@ -31,7 +31,8 @@ export const scopeRouter = router({
     }
     const scope = await resolveViewerScope(person, TENANT_ID);
 
-    // Read user preferences for landing override
+    // Read user preferences for landing override — only honor if the user
+    // EXPLICITLY set one (otherwise fall through to tier-computed default).
     const dbi = await getDb();
     let landingOverride: LandingPath | null = null;
     if (dbi) {
@@ -40,7 +41,7 @@ export const scopeRouter = router({
         .from(userPreferences)
         .where(eq(userPreferences.userId, ctx.user.id))
         .limit(1);
-      if (prefs.length > 0) {
+      if (prefs.length > 0 && prefs[0].defaultLandingExplicit && prefs[0].defaultLandingPath) {
         landingOverride = prefs[0].defaultLandingPath as LandingPath;
       }
     }
@@ -90,11 +91,12 @@ export const scopeRouter = router({
         await dbi.insert(userPreferences).values({
           userId: ctx.user.id,
           defaultLandingPath: input.path,
+          defaultLandingExplicit: true,
         });
       } else {
         await dbi
           .update(userPreferences)
-          .set({ defaultLandingPath: input.path })
+          .set({ defaultLandingPath: input.path, defaultLandingExplicit: true })
           .where(eq(userPreferences.userId, ctx.user.id));
       }
       return { success: true };
@@ -218,4 +220,107 @@ export const scopeRouter = router({
         })),
       };
     }),
+
+  /**
+   * Submission status for the viewer's direct reports for the active cycle.
+   * Used by /team cards to show who's journaled / self-rated / submitted.
+   *
+   * Status derivation:
+   *   SUBMITTED     — at least one self-assessment with submittedAt set
+   *   IN_PROGRESS   — has journal entry OR scored but not submitted
+   *   PENDING       — no journal, no rating yet
+   *   OVERDUE       — PENDING and deadline has passed
+   */
+  getTeamSubmissionStatus: protectedProcedure.query(async ({ ctx }) => {
+    const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, TENANT_ID);
+    if (!person) return [];
+    const scope = await resolveViewerScope(person, TENANT_ID);
+    if (scope.directReportPersonIds.length === 0) return [];
+    const dbi = await getDb();
+    if (!dbi) return [];
+
+    // Find active cycle
+    const cycleRows = await dbi
+      .select()
+      .from(governanceCycles)
+      .where(and(eq(governanceCycles.tenantId, TENANT_ID), eq(governanceCycles.status, "OPEN")))
+      .orderBy(desc(governanceCycles.month))
+      .limit(1);
+    const cycle = cycleRows[0];
+    if (!cycle) {
+      // No open cycle — everyone is neutrally "no cycle"
+      return scope.directReportPersonIds.map(pid => ({
+        personId: pid,
+        status: "NO_CYCLE" as const,
+        journaled: false,
+        rated: false,
+        submitted: false,
+        submittedCount: 0,
+        totalMandates: 0,
+      }));
+    }
+
+    // Find the "self" feedback type
+    const ftRows = await dbi
+      .select()
+      .from(feedbackTypes)
+      .where(and(eq(feedbackTypes.tenantId, TENANT_ID), eq(feedbackTypes.key, "self")))
+      .limit(1);
+    const selfTypeId = ftRows[0]?.id;
+
+    // Bulk-fetch journals + assessments for all direct reports
+    const [journals, assessments] = await Promise.all([
+      dbi
+        .select()
+        .from(mandateJournals)
+        .where(
+          and(
+            eq(mandateJournals.tenantId, TENANT_ID),
+            eq(mandateJournals.cycleId, cycle.id),
+            inArray(mandateJournals.personId, scope.directReportPersonIds)
+          )
+        ),
+      dbi
+        .select()
+        .from(governanceAssessments)
+        .where(
+          and(
+            eq(governanceAssessments.tenantId, TENANT_ID),
+            eq(governanceAssessments.cycleId, cycle.id),
+            inArray(governanceAssessments.assessorPersonId, scope.directReportPersonIds)
+          )
+        ),
+    ]);
+
+    const now = new Date();
+    const deadlinePassed = cycle.deadlineDate ? new Date(cycle.deadlineDate) <= now : false;
+
+    return scope.directReportPersonIds.map(pid => {
+      const myJournals = journals.filter(j => j.personId === pid && (j.logText?.length ?? 0) > 5);
+      const mySelfAssessments = selfTypeId
+        ? assessments.filter(a => a.assessorPersonId === pid && a.feedbackTypeId === selfTypeId)
+        : [];
+      const submittedCount = mySelfAssessments.filter(a => a.submittedAt).length;
+      const scoredCount = mySelfAssessments.filter(a => a.score != null).length;
+      const journaled = myJournals.length > 0;
+      const rated = scoredCount > 0;
+      const submitted = submittedCount > 0;
+
+      let status: "SUBMITTED" | "IN_PROGRESS" | "PENDING" | "OVERDUE";
+      if (submitted) status = "SUBMITTED";
+      else if (journaled || rated) status = "IN_PROGRESS";
+      else if (deadlinePassed) status = "OVERDUE";
+      else status = "PENDING";
+
+      return {
+        personId: pid,
+        status,
+        journaled,
+        rated,
+        submitted,
+        submittedCount,
+        totalMandates: mySelfAssessments.length,
+      };
+    });
+  }),
 });

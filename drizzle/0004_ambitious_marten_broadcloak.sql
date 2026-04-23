@@ -1,0 +1,2 @@
+ALTER TABLE `userPreferences` MODIFY COLUMN `defaultLandingPath` enum('me','team','group','today');--> statement-breakpoint
+ALTER TABLE `userPreferences` ADD `defaultLandingExplicit` boolean DEFAULT false NOT NULL;

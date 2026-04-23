@@ -50,11 +50,14 @@ export default function MobileBottomNav() {
   const items: Item[] = [{ path: "/me", icon: User, label: "Me" }];
   if (showTeam) items.push({ path: "/team", icon: UsersRound, label: "Team" });
   if (showGroup) items.push({ path: "/group", icon: Network, label: "Group" });
-  // Primary action — voice capture
-  items.push({ path: "/capture?voice=true", icon: Mic, label: "Voice", primary: true });
+  // Primary action — voice-first capture
+  items.push({ path: "/capture?voice=true", icon: Mic, label: "Capture", primary: true });
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border z-40 safe-area-inset-bottom">
+    <nav
+      aria-label="Primary"
+      className="md:hidden fixed bottom-0 left-0 right-0 bg-background border-t border-border z-40 safe-area-inset-bottom"
+    >
       <div className="flex items-center justify-around h-16 px-1">
         {items.map(item => {
           const Icon = item.icon;
@@ -70,7 +73,7 @@ export default function MobileBottomNav() {
                 <div className="w-14 h-14 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center shadow-lg">
                   <Icon className="h-6 w-6 text-white" />
                 </div>
-                <span className="text-[10px] mt-0.5 font-medium text-teal-600">{item.label}</span>
+                <span className="text-[11px] mt-0.5 font-medium text-teal-700 dark:text-teal-300">{item.label}</span>
               </button>
             );
           }
@@ -84,7 +87,7 @@ export default function MobileBottomNav() {
               aria-label={item.label}
             >
               <Icon className="h-5 w-5" />
-              <span className="text-[10px] mt-0.5">{item.label}</span>
+              <span className="text-[11px] mt-0.5">{item.label}</span>
             </button>
           );
         })}
@@ -94,8 +97,8 @@ export default function MobileBottomNav() {
               className="flex flex-col items-center justify-center flex-1 h-full text-muted-foreground"
               aria-label="More"
             >
-              <Menu className="h-5 w-5" />
-              <span className="text-[10px] mt-0.5">More</span>
+              <Menu className="h-5 w-5" aria-hidden="true" />
+              <span className="text-[11px] mt-0.5">More</span>
             </button>
           </SheetTrigger>
           <SheetContent side="bottom" className="h-[80vh] overflow-y-auto">

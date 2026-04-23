@@ -12,15 +12,21 @@ import { useLocation } from "wouter";
 import { toast } from "sonner";
 
 const SEVERITY_COLOR: Record<string, string> = {
-  CRITICAL: "border-red-500/40 bg-red-500/5",
-  WARNING: "border-amber-500/40 bg-amber-500/5",
-  INFO: "border-violet-500/40 bg-violet-500/5",
+  CRITICAL: "border-red-500/50 bg-red-500/10 dark:bg-red-500/15",
+  WARNING: "border-amber-500/50 bg-amber-500/10 dark:bg-amber-500/15",
+  INFO: "border-violet-500/50 bg-violet-500/10 dark:bg-violet-500/15",
 };
 
 const SEVERITY_ICON_COLOR: Record<string, string> = {
-  CRITICAL: "text-red-500",
-  WARNING: "text-amber-500",
-  INFO: "text-violet-500",
+  CRITICAL: "text-red-700 dark:text-red-300",
+  WARNING: "text-amber-700 dark:text-amber-300",
+  INFO: "text-violet-700 dark:text-violet-300",
+};
+
+const SEVERITY_LABEL: Record<string, string> = {
+  CRITICAL: "Critical:",
+  WARNING: "Warning:",
+  INFO: "Insight:",
 };
 
 export default function InsightsInbox({ limit = 5 }: { limit?: number }) {
@@ -38,13 +44,15 @@ export default function InsightsInbox({ limit = 5 }: { limit?: number }) {
     <Card>
       <CardContent className="p-4 space-y-3">
         <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-violet-500" />
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <Sparkles className="w-4 h-4 text-violet-700 dark:text-violet-300" aria-hidden="true" />
             AI insights for you
-          </h3>
-          <Badge variant="outline" className="text-[10px]">{data.length}</Badge>
+          </h2>
+          <Badge variant="outline" className="text-[10px]" aria-label={`${data.length} insights`}>
+            {data.length}
+          </Badge>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-2" role="list" aria-live="polite" aria-atomic="false">
           {data.map(insight => {
             const sev = insight.severity ?? "INFO";
             const Icon = sev === "CRITICAL" ? AlertTriangle : sev === "WARNING" ? Clock : Sparkles;
@@ -63,12 +71,15 @@ export default function InsightsInbox({ limit = 5 }: { limit?: number }) {
                         <Badge variant="outline" className="text-[10px]">{insight.scope}</Badge>
                       )}
                     </div>
-                    <p className="text-sm leading-snug">{insight.insightText}</p>
+                    <p className="text-sm leading-snug">
+                      <span className="sr-only">{SEVERITY_LABEL[sev]} </span>
+                      {insight.insightText}
+                    </p>
                     <div className="flex items-center gap-1 pt-1">
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-2 text-[11px] gap-1"
+                        className="h-8 px-2.5 text-[11px] gap-1"
                         onClick={() => {
                           addressed.mutate({ insightId: insight.id });
                           toast.success("Marked addressed");
@@ -80,7 +91,7 @@ export default function InsightsInbox({ limit = 5 }: { limit?: number }) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-2 text-[11px] gap-1"
+                        className="h-8 px-2.5 text-[11px] gap-1"
                         onClick={() => {
                           snooze.mutate({ insightId: insight.id, hours: 24 });
                           toast.success("Snoozed 24h");
@@ -92,7 +103,7 @@ export default function InsightsInbox({ limit = 5 }: { limit?: number }) {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-6 px-2 text-[11px] gap-1"
+                        className="h-8 px-2.5 text-[11px] gap-1"
                         onClick={() => {
                           dismiss.mutate({ insightId: insight.id });
                         }}

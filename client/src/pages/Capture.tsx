@@ -227,12 +227,20 @@ export default function Capture() {
         <CardContent className="p-6 flex flex-col items-center gap-4">
           <Button
             size="icon"
-            className={`h-24 w-24 rounded-full transition-all ${
-              recState === "listening" ? "bg-red-600 hover:bg-red-700 animate-pulse" : "bg-teal-600 hover:bg-teal-700"
+            className={`h-24 w-24 rounded-full transition-all focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+              recState === "listening"
+                ? "bg-red-600 hover:bg-red-700 motion-safe:animate-pulse ring-2 ring-red-400"
+                : "bg-teal-600 hover:bg-teal-700"
             }`}
             onClick={recState === "listening" ? stopRecording : startRecording}
             disabled={recState === "stopping" || recState === "unsupported"}
-            aria-label={recState === "listening" ? "Stop recording" : "Start recording"}
+            aria-label={
+              recState === "unsupported"
+                ? "Voice recording not supported in this browser — type below instead"
+                : recState === "listening"
+                  ? "Stop recording"
+                  : "Start recording"
+            }
           >
             {recState === "stopping" ? (
               <Loader2 className="h-10 w-10 text-white animate-spin" />
@@ -244,11 +252,15 @@ export default function Capture() {
             <div className="text-sm font-medium">
               {recState === "listening" ? "Listening — tap to stop" :
                recState === "stopping" ? "Processing..." :
-               recState === "unsupported" ? "Voice unavailable in this browser" :
+               recState === "unsupported" ? "Voice not supported in this browser" :
                "Tap to talk"}
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              {recState === "listening" ? "Speak naturally — I'll figure out where it goes." : "Or type below"}
+              {recState === "listening"
+                ? "Speak naturally — I'll figure out where it goes."
+                : recState === "unsupported"
+                  ? "You can still type your entry below — same destination."
+                  : "Or type below"}
             </div>
           </div>
         </CardContent>
@@ -256,30 +268,41 @@ export default function Capture() {
 
       {/* Live + final transcript */}
       <div className="space-y-2">
-        <Label className="flex items-center justify-between">
+        <Label htmlFor="capture-transcript" className="flex items-center justify-between">
           <span>Transcript</span>
           {classifyMutation.isPending && (
-            <span className="text-xs text-muted-foreground flex items-center gap-1.5">
-              <Loader2 className="w-3 h-3 animate-spin" /> Understanding...
+            <span
+              role="status"
+              aria-live="polite"
+              className="text-xs text-muted-foreground flex items-center gap-1.5"
+            >
+              <Loader2 className="w-3 h-3 motion-safe:animate-spin" aria-hidden="true" /> Understanding…
             </span>
           )}
         </Label>
         <Textarea
+          id="capture-transcript"
           rows={5}
           value={text}
           onChange={e => {
             setText(e.target.value);
-            // Re-classify if user heavily edits
             if (aiClassification && Math.abs(e.target.value.length - text.length) > 30) {
               setAiClassification(null);
               setIntentChoice(null);
             }
           }}
           placeholder="What's on your mind?"
+          aria-describedby="capture-interim"
         />
-        {interim && (
-          <p className="text-xs text-muted-foreground italic">{interim}</p>
-        )}
+        <p
+          id="capture-interim"
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="text-xs text-muted-foreground italic min-h-[1em]"
+        >
+          {interim}
+        </p>
       </div>
 
       {/* AI classification + confirmation */}
@@ -317,9 +340,9 @@ export default function Capture() {
       {/* Manual intent picker (always visible if there's text) */}
       {text.trim().length > 0 && (
         <div className="space-y-2">
-          <Label>Save as...</Label>
+          <Label htmlFor="capture-intent">Save as...</Label>
           <Select value={intentChoice ?? undefined} onValueChange={v => setIntentChoice(v as IntentType)}>
-            <SelectTrigger>
+            <SelectTrigger id="capture-intent">
               <SelectValue placeholder="Choose where this lands" />
             </SelectTrigger>
             <SelectContent>

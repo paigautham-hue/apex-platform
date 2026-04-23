@@ -173,32 +173,48 @@ export default function JournalEditor({
     switch (state) {
       case "saving":
         return (
-          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Loader2 className="w-3 h-3 animate-spin" /> Saving...
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-1.5 text-xs text-sky-700 dark:text-sky-300 motion-safe:animate-in motion-safe:fade-in"
+          >
+            <Loader2 className="w-3 h-3 motion-safe:animate-spin" aria-hidden="true" /> Saving…
           </div>
         );
       case "saved":
         return (
-          <div className="flex items-center gap-1.5 text-xs text-emerald-600 dark:text-emerald-400">
-            <Check className="w-3 h-3" /> Saved
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-center gap-1.5 text-xs text-emerald-700 dark:text-emerald-300"
+          >
+            <Check className="w-3 h-3" aria-hidden="true" /> Saved
           </div>
         );
       case "dirty":
         return (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Cloud className="w-3 h-3" /> Editing...
+            <Cloud className="w-3 h-3" aria-hidden="true" /> Editing…
           </div>
         );
       case "offline":
         return (
-          <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-            <CloudOff className="w-3 h-3" /> Offline — saved locally
+          <div
+            role="status"
+            aria-live="assertive"
+            className="flex items-center gap-1.5 text-xs text-amber-700 dark:text-amber-300"
+          >
+            <CloudOff className="w-3 h-3" aria-hidden="true" /> Offline — saved locally
           </div>
         );
       case "error":
         return (
-          <div className="flex items-center gap-1.5 text-xs text-red-600 dark:text-red-400">
-            <CloudOff className="w-3 h-3" /> Save failed — kept locally
+          <div
+            role="alert"
+            aria-live="assertive"
+            className="flex items-center gap-1.5 text-xs text-red-700 dark:text-red-300"
+          >
+            <CloudOff className="w-3 h-3" aria-hidden="true" /> Save failed — kept locally
           </div>
         );
       default:

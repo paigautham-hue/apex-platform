@@ -39,12 +39,22 @@ export default function VarianceAlerts() {
               key={`${a.orgUnitId}-${a.metricId}`}
               className={`flex items-center justify-between rounded-md px-3 py-2 border ${
                 a.variance === "OFF_TRACK"
-                  ? "bg-red-500/5 border-red-500/30"
-                  : "bg-amber-500/5 border-amber-500/30"
+                  ? "bg-red-500/10 dark:bg-red-500/15 border-red-500/50"
+                  : "bg-amber-500/10 dark:bg-amber-500/15 border-amber-500/50"
               }`}
             >
               <div className="flex items-center gap-2 min-w-0">
-                <TrendingDown className="w-3.5 h-3.5 flex-shrink-0 text-red-500" />
+                <span className="sr-only">
+                  {a.variance === "OFF_TRACK" ? "Off track: " : "Watch: "}
+                </span>
+                <TrendingDown
+                  className={`w-3.5 h-3.5 flex-shrink-0 ${
+                    a.variance === "OFF_TRACK"
+                      ? "text-red-700 dark:text-red-300"
+                      : "text-amber-700 dark:text-amber-300"
+                  }`}
+                  aria-hidden="true"
+                />
                 <div className="min-w-0">
                   <div className="text-sm font-medium truncate">
                     {a.orgUnitName} · {a.metricName}

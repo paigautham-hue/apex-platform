@@ -13,6 +13,7 @@ import { useViewer, tierLabel } from "@/hooks/useViewer";
 import PrimaryActionCard from "@/components/PrimaryActionCard";
 import CycleStatusBanner from "@/components/CycleStatusBanner";
 import InsightsInbox from "@/components/InsightsInbox";
+import FirstCycleWelcome from "@/components/FirstCycleWelcome";
 import MyBridge from "./MyBridge";
 import MyIsland from "./MyIsland";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,10 +23,14 @@ import { Badge } from "@/components/ui/badge";
 import { Mic, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 export default function Me() {
   const { viewer, isLoading } = useViewer();
+  const { user } = useAuth();
   const [, navigate] = useLocation();
+  const { data: activeCycle } = trpc.governance.getActiveCycle.useQuery({ tenantId: 1 });
 
   if (isLoading) {
     return (
@@ -85,25 +90,16 @@ export default function Me() {
       {/* Render the substantive workspace */}
       {isCeoLeader ? (
         <MyIsland />
-      ) : hasRoleMandates ? (
+      ) : hasRoleMandates && activeCycle ? (
         <MyBridge />
       ) : (
-        <Card>
-          <CardContent className="p-8 text-center space-y-4">
-            <div className="text-sm text-muted-foreground">
-              You don't have role mandates configured yet. You can still capture observations,
-              reflect, and prepare for your meetings.
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <Button onClick={() => navigate("/capture?voice=true")} className="gap-2">
-                <Mic className="w-4 h-4" /> Voice capture
-              </Button>
-              <Button variant="outline" onClick={() => navigate("/reflections")} className="gap-2">
-                <Sparkles className="w-4 h-4" /> Reflect
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        <FirstCycleWelcome
+          isAdmin={user?.role === "admin" || viewer.isFundWide}
+          hasCycle={!!activeCycle}
+          hasMandates={hasRoleMandates}
+          cycleMonth={activeCycle?.month ?? null}
+          userFirstName={viewer.personName}
+        />
       )}
     </div>
   );

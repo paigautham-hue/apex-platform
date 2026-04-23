@@ -173,7 +173,7 @@ export default function VoiceJournalCapture({
         onClick={toggle}
         disabled={busy}
         aria-label={listening ? "Stop voice capture" : "Start voice capture"}
-        className={listening ? "animate-pulse" : ""}
+        className={listening ? "motion-safe:animate-pulse" : ""}
       >
         {busy ? (
           <Loader2 className="w-4 h-4 animate-spin" />
@@ -186,8 +186,13 @@ export default function VoiceJournalCapture({
           <span className="ml-1.5 text-xs">{listening ? "Stop" : promptHint}</span>
         )}
       </Button>
-      {!compact && interim && (
-        <span className="text-xs text-muted-foreground italic truncate max-w-xs">
+      {!compact && (
+        <span
+          role="status"
+          aria-live="polite"
+          aria-atomic="true"
+          className="text-xs text-muted-foreground italic truncate max-w-xs"
+        >
           {interim}
         </span>
       )}
