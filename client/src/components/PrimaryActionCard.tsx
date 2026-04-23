@@ -15,10 +15,10 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Mic, Sparkles, AlertTriangle, Clock, Target, MessageSquare } from "lucide-react";
+import { ArrowRight, Mic, Sparkles, AlertTriangle, Clock, Target, MessageSquare, X } from "lucide-react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 
 type Action = {
   kind: "INSIGHT" | "CYCLE" | "ASSESSMENT" | "JOURNAL" | "PULSE" | "GREETING";
@@ -43,6 +43,16 @@ interface Props {
 export default function PrimaryActionCard({ scope, viewerPersonId, viewerName }: Props) {
   const [, navigate] = useLocation();
 
+  // Server-computed daily focus (Rhythm Layer)
+  const { data: serverFocus } = trpc.rhythm.getMyDailyFocus.useQuery(undefined, { staleTime: 60_000 });
+  const markFocus = trpc.rhythm.markFocus.useMutation();
+
+  // Mark as VIEWED on first render
+  useEffect(() => {
+    if (serverFocus) markFocus.mutate({ action: "VIEWED" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serverFocus?.kind]);
+
   const { data: activeCycle } = trpc.governance.getActiveCycle.useQuery({ tenantId: TENANT_ID });
   const cycleId = activeCycle?.id ?? 0;
 
@@ -57,6 +67,38 @@ export default function PrimaryActionCard({ scope, viewerPersonId, viewerName }:
   const { data: profile } = trpc.person.getMyProfile.useQuery();
 
   const action: Action = useMemo(() => {
+    // Prefer server-computed focus when available (richer signals)
+    if (serverFocus) {
+      const accentMap: Record<string, "red" | "amber" | "teal" | "violet" | "neutral"> = {
+        INSIGHT: "violet",
+        CYCLE_DEADLINE: serverFocus.urgency >= 80 ? "red" : "amber",
+        PENDING_ASSESSMENT: "amber",
+        EMPTY_JOURNAL: "teal",
+        PULSE: "teal",
+        GREETING: "neutral",
+      };
+      const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+        INSIGHT: Sparkles,
+        CYCLE_DEADLINE: Clock,
+        PENDING_ASSESSMENT: AlertTriangle,
+        EMPTY_JOURNAL: Target,
+        PULSE: Sparkles,
+        GREETING: MessageSquare,
+      };
+      return {
+        kind: serverFocus.kind === "CYCLE_DEADLINE" ? "CYCLE" : serverFocus.kind === "PENDING_ASSESSMENT" ? "ASSESSMENT" : serverFocus.kind === "EMPTY_JOURNAL" ? "JOURNAL" : serverFocus.kind === "INSIGHT" ? "INSIGHT" : serverFocus.kind === "PULSE" ? "PULSE" : "GREETING",
+        urgency: serverFocus.urgency,
+        title: serverFocus.title,
+        body: serverFocus.body,
+        ctaLabel: serverFocus.ctaLabel,
+        ctaPath: serverFocus.ctaPath,
+        icon: iconMap[serverFocus.kind] ?? MessageSquare,
+        accent: accentMap[serverFocus.kind] ?? "neutral",
+        voicePrompt: serverFocus.voicePrompt,
+      };
+    }
+
+    // Client-side fallback when server focus unavailable
     const mandates = (profile?.currentRole?.successMetrics ?? []) as string[];
     const firstName = (viewerName ?? "").split(" ")[0] || "there";
 
@@ -177,7 +219,7 @@ export default function PrimaryActionCard({ scope, viewerPersonId, viewerName }:
       accent: "neutral",
       voicePrompt: "What's one thing on your mind right now?",
     };
-  }, [activeCycle, myJournals, myAssessments, profile, scope, viewerName, cycleId]);
+  }, [activeCycle, myJournals, myAssessments, profile, scope, viewerName, cycleId, serverFocus]);
 
   const accentClasses = {
     red: "border-red-500/40 bg-red-500/5",

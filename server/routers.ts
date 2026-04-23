@@ -9,9 +9,12 @@ import { accessControlRouter } from "./routers/accessControl";
 import { preferencesRouter } from "./routers/preferences";
 import { scopeRouter } from "./routers/scope";
 import { voiceRouter } from "./routers/voice";
+import { deliberationRouter } from "./routers/deliberation";
+import { rhythmRouter } from "./routers/rhythm";
 import { processUploadedFile } from "./ai-extraction";
 import * as db from "./db";
 import * as governanceNotifications from "./governance-notifications";
+import { filterAssessmentsByVisibility } from "./reveal-gating";
 import { runCommitmentTrackerForCycle, findChronicDeferralsForTenant } from "./ai-commitment";
 import { generateAllInsights } from "./ai-insights-generator";
 import { CORE_VALUES, OBSERVATION_TEMPLATES, getDataSufficiencyLevel } from "../shared/constants";
@@ -1126,13 +1129,30 @@ const governanceRouter = router({
       targetType: z.enum(["ROLE", "COMPANY", "CHAIN"]),
       targetId: z.number(),
     }))
-    .query(async ({ input }) => {
-      return await db.getAssessmentsForTarget(
+    .query(async ({ input, ctx }) => {
+      const all = await db.getAssessmentsForTarget(
         input.targetType,
         input.targetId,
         input.cycleId,
         input.tenantId,
       );
+      const viewer = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
+      if (!viewer) return [];
+      // Determine if viewer is the subject (target ROLE.personId or COMPANY leader)
+      let viewerIsSubject = false;
+      if (input.targetType === "ROLE") {
+        const role = await db.getRoleById(input.targetId, input.tenantId);
+        viewerIsSubject = role?.personId === viewer.id;
+      }
+      const viewerIsAssessor = all.some(a => a.assessorPersonId === viewer.id);
+      // Apply reveal gating per feedbackTypes.visibilityRule
+      return await filterAssessmentsByVisibility(all, {
+        tenantId: input.tenantId,
+        cycleId: input.cycleId,
+        viewerPersonId: viewer.id,
+        viewerIsSubject,
+        viewerIsAssessor,
+      });
     }),
 
   // --- Assignments ---
@@ -1456,6 +1476,12 @@ export const appRouter = router({
 
   // Voice — capture, intent classification, live sessions
   voice: voiceRouter,
+
+  // AI multi-persona deliberation panels
+  deliberation: deliberationRouter,
+
+  // Rhythm Layer — daily focus, deadline reminders
+  rhythm: rhythmRouter,
 
   // Access control + preferences
   accessControl: accessControlRouter,

@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Building2, Users, ChevronRight, Pencil, Check, X } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
+import AIDeliberationPanel from "@/components/AIDeliberationPanel";
 
 export default function PersonProfile({ personId }: { personId: number }) {
   const [, setLocation] = useLocation();
@@ -79,6 +80,15 @@ export default function PersonProfile({ personId }: { personId: number }) {
         </div>
         <Button onClick={() => setLocation('/meetings')}>Schedule 1:1</Button>
       </div>
+
+      {/* AI Panel Review — fractal: any leader can run on any subordinate */}
+      {person.currentRoleId && (
+        <AIDeliberationPanel
+          targetType="ROLE"
+          targetId={person.currentRoleId}
+          targetName={person.name ?? undefined}
+        />
+      )}
 
       {/* Reporting Structure Card */}
       <Card>
