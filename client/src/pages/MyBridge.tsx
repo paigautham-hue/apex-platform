@@ -11,6 +11,7 @@ import { Anchor, Compass, History, Lock, MessageSquare, Send, Target } from "luc
 import { Checkbox } from "@/components/ui/checkbox";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import JournalEditor from "@/components/JournalEditor";
 
 const TENANT_ID = 1;
 
@@ -362,11 +363,24 @@ export default function MyBridge() {
                         );
                       })()}
                       <Label>What I did this month toward this mandate</Label>
-                      <Textarea
-                        rows={5}
-                        value={draft.logText}
-                        onChange={(e) => updateDraft(dim, { logText: e.target.value })}
-                        onBlur={() => saveJournalOnBlur(dim)}
+                      <JournalEditor
+                        draftKey={`mybridge.log.${cycleId}.${dim}`}
+                        initialValue={draft.logText}
+                        prompt="Talk through what shifted on this mandate this month — wins, blockers, what surprised you."
+                        suggestedLength={{ min: 30, max: 200 }}
+                        onSave={async text => {
+                          updateDraft(dim, { logText: text });
+                          await upsertJournal.mutateAsync({
+                            tenantId: TENANT_ID,
+                            cycleId,
+                            dimensionKey: dim,
+                            roleId: roleId || null,
+                            orgUnitId: null,
+                            logText: text || null,
+                            planText: drafts[dim]?.planText || null,
+                            planItems: null,
+                          });
+                        }}
                         placeholder="The ship's log for this heading..."
                       />
                     </TabsContent>
@@ -388,11 +402,24 @@ export default function MyBridge() {
                         );
                       })()}
                       <Label>What I plan to do next month</Label>
-                      <Textarea
-                        rows={5}
-                        value={draft.planText}
-                        onChange={(e) => updateDraft(dim, { planText: e.target.value })}
-                        onBlur={() => saveJournalOnBlur(dim)}
+                      <JournalEditor
+                        draftKey={`mybridge.plan.${cycleId}.${dim}`}
+                        initialValue={draft.planText}
+                        prompt="1-3 specific commitments for next month. Concrete is better than aspirational."
+                        suggestedLength={{ min: 15, max: 120 }}
+                        onSave={async text => {
+                          updateDraft(dim, { planText: text });
+                          await upsertJournal.mutateAsync({
+                            tenantId: TENANT_ID,
+                            cycleId,
+                            dimensionKey: dim,
+                            roleId: roleId || null,
+                            orgUnitId: null,
+                            logText: drafts[dim]?.logText || null,
+                            planText: text || null,
+                            planItems: null,
+                          });
+                        }}
                         placeholder="Top 1-3 specific commitments for the next cycle..."
                       />
                     </TabsContent>

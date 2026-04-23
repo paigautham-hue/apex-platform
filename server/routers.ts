@@ -8,6 +8,7 @@ import { processAskQuery, getSuggestedQueries } from "./ai-ask";
 import { accessControlRouter } from "./routers/accessControl";
 import { preferencesRouter } from "./routers/preferences";
 import { scopeRouter } from "./routers/scope";
+import { voiceRouter } from "./routers/voice";
 import { processUploadedFile } from "./ai-extraction";
 import * as db from "./db";
 import * as governanceNotifications from "./governance-notifications";
@@ -1452,6 +1453,9 @@ export const appRouter = router({
 
   // Fractal scope router — viewer/landing/team/org-tree resolution
   scope: scopeRouter,
+
+  // Voice — capture, intent classification, live sessions
+  voice: voiceRouter,
 
   // Access control + preferences
   accessControl: accessControlRouter,
