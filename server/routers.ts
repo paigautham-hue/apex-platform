@@ -17,6 +17,7 @@ import { memoryRouter } from "./routers/memory";
 import { calendarRouter } from "./routers/calendar";
 import { shareRouter } from "./routers/share";
 import { financialAnalyticsRouter } from "./routers/financialAnalytics";
+import { threeSixtyRouter } from "./routers/threeSixty";
 import { processUploadedFile } from "./ai-extraction";
 import * as db from "./db";
 import * as governanceNotifications from "./governance-notifications";
@@ -1506,6 +1507,9 @@ export const appRouter = router({
 
   // Financial analytics — variance alerts + benchmarks
   financialAnalytics: financialAnalyticsRouter,
+
+  // 360 fractal cycles — any leader can run on their team
+  threeSixty: threeSixtyRouter,
 
   // Access control + preferences
   accessControl: accessControlRouter,
