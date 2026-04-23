@@ -14,9 +14,35 @@ import { and, eq, desc } from "drizzle-orm";
 import { protectedProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import * as db from "../db";
-import { resolveViewerScope } from "../scope";
+import { resolveViewerScope, canViewPerson, canViewOrgUnit } from "../scope";
 import { runDeliberation } from "../ai-deliberation";
 import { aiDeliberations, aiPersonaConfigs } from "../../drizzle/schema";
+
+async function authorizeTargetAccess(
+  ctx: { user: { id: number; email?: string | null } },
+  targetType: "ROLE" | "COMPANY" | "PERSON",
+  targetId: number
+) {
+  const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, TENANT_ID);
+  if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person not found" });
+  const scope = await resolveViewerScope(person, TENANT_ID);
+  if (targetType === "ROLE") {
+    const role = await db.getRoleById(targetId, TENANT_ID);
+    if (!role) throw new TRPCError({ code: "NOT_FOUND", message: "Role not found" });
+    if (!canViewPerson(scope, role.personId)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized for this target" });
+    }
+  } else if (targetType === "PERSON") {
+    if (!canViewPerson(scope, targetId)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized for this person" });
+    }
+  } else if (targetType === "COMPANY") {
+    if (!canViewOrgUnit(scope, targetId)) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Not authorized for this company" });
+    }
+  }
+  return { person, scope };
+}
 
 const TENANT_ID = 1;
 
@@ -54,7 +80,7 @@ export const deliberationRouter = router({
 
   get: protectedProcedure
     .input(z.object({ deliberationId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const dbi = await getDb();
       if (!dbi) return null;
       const rows = await dbi
@@ -62,7 +88,11 @@ export const deliberationRouter = router({
         .from(aiDeliberations)
         .where(and(eq(aiDeliberations.tenantId, TENANT_ID), eq(aiDeliberations.id, input.deliberationId)))
         .limit(1);
-      return rows[0] ?? null;
+      const row = rows[0];
+      if (!row) return null;
+      // Authorize before returning
+      await authorizeTargetAccess(ctx, row.targetType as "ROLE" | "COMPANY" | "PERSON", row.targetId);
+      return row;
     }),
 
   listForTarget: protectedProcedure
@@ -73,7 +103,8 @@ export const deliberationRouter = router({
         limit: z.number().min(1).max(20).default(10),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      await authorizeTargetAccess(ctx, input.targetType, input.targetId);
       const dbi = await getDb();
       if (!dbi) return [];
       return await dbi

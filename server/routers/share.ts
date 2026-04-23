@@ -8,9 +8,11 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, eq, desc, gte } from "drizzle-orm";
+import { and, eq, desc, gte, sql } from "drizzle-orm";
 import { protectedProcedure, publicProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
+import * as db from "../db";
+import { resolveViewerScope, canViewOrgUnit, canViewPerson } from "../scope";
 import { shareLinks, orgUnits, governanceAssessments, mandateJournals, aiInsights, governanceCycles } from "../../drizzle/schema";
 import { computeVarianceAlerts, buildBenchmarkTable } from "../financial-analytics";
 import crypto from "node:crypto";
@@ -21,6 +23,10 @@ export const shareRouter = router({
   /**
    * Create a view-only share link for a resource.
    * Resources: BOARD_PACK, COMPANY_REPORT, ROLE_REPORT
+   * Auth-gated by resource type:
+   *   BOARD_PACK     — fund-wide viewers only
+   *   COMPANY_REPORT — viewer must own the company subtree
+   *   ROLE_REPORT    — viewer must have authority over the role's person
    */
   create: protectedProcedure
     .input(
@@ -32,6 +38,24 @@ export const shareRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, TENANT_ID);
+      if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person not found" });
+      const scope = await resolveViewerScope(person, TENANT_ID);
+      // Authorization
+      if (input.resourceType === "BOARD_PACK") {
+        if (!scope.isFundWide) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only fund-wide leaders can share board packs" });
+        }
+      } else if (input.resourceType === "COMPANY_REPORT") {
+        if (!canViewOrgUnit(scope, input.resourceId)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "You don't have authority over this company" });
+        }
+      } else if (input.resourceType === "ROLE_REPORT") {
+        const role = await db.getRoleById(input.resourceId, TENANT_ID);
+        if (!role || !canViewPerson(scope, role.personId)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "You don't have authority over this role" });
+        }
+      }
       const dbi = await getDb();
       if (!dbi) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
       const token = crypto.randomBytes(24).toString("base64url");
@@ -106,10 +130,10 @@ export const shareRouter = router({
         throw new TRPCError({ code: "UNAUTHORIZED", message: "Password required or incorrect" });
       }
 
-      // Increment view count
+      // Increment view count atomically (avoids lost-update race on concurrent opens)
       await dbi
         .update(shareLinks)
-        .set({ viewCount: row.viewCount + 1, lastViewedAt: new Date() })
+        .set({ viewCount: sql`${shareLinks.viewCount} + 1`, lastViewedAt: new Date() })
         .where(eq(shareLinks.id, row.id));
 
       // Build snapshot per resource type
@@ -127,10 +151,17 @@ export const shareRouter = router({
 
   /**
    * Live preview of a board pack (for the creator before generating share link).
+   * Auth-gated: fund-wide viewers only (board packs span the entire portfolio).
    */
   previewBoardPack: protectedProcedure
     .input(z.object({ cycleId: z.number().optional() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, TENANT_ID);
+      if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person not found" });
+      const scope = await resolveViewerScope(person, TENANT_ID);
+      if (!scope.isFundWide) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Board pack preview requires fund-wide authority" });
+      }
       // For board pack, the resourceId IS the cycleId (or 0 for "current")
       return await buildBoardPackSnapshot(TENANT_ID, input.cycleId ?? 0);
     }),

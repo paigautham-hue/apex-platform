@@ -138,7 +138,22 @@ export async function generate360Assignments(input: Generate360Input): Promise<{
 
   if (createdAssignments.length === 0) return { created: 0 };
 
-  // Bulk insert
-  await db.insert(assessmentAssignments).values(createdAssignments);
-  return { created: createdAssignments.length };
+  // Dedup against existing assignments for this cycle (idempotent re-runs)
+  const existing = await db
+    .select()
+    .from(assessmentAssignments)
+    .where(
+      and(
+        eq(assessmentAssignments.tenantId, input.tenantId),
+        eq(assessmentAssignments.cycleId, input.cycleId)
+      )
+    );
+  const key = (a: { assessorPersonId: number; targetType: string; targetId: number; feedbackTypeId: number }) =>
+    `${a.assessorPersonId}:${a.targetType}:${a.targetId}:${a.feedbackTypeId}`;
+  const seen = new Set(existing.map(key));
+  const fresh = createdAssignments.filter(a => !seen.has(key(a)));
+  if (fresh.length === 0) return { created: 0 };
+
+  await db.insert(assessmentAssignments).values(fresh);
+  return { created: fresh.length };
 }

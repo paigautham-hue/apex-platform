@@ -5,7 +5,7 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, eq } from "drizzle-orm";
-import { protectedProcedure, router } from "../_core/trpc";
+import { protectedProcedure, adminProcedure, router } from "../_core/trpc";
 import { getDb } from "../db";
 import * as db from "../db";
 import { resolveViewerScope } from "../scope";
@@ -17,9 +17,9 @@ const TENANT_ID = 1;
 export const threeSixtyRouter = router({
   /**
    * Ensure peer/upward feedback types exist (idempotent).
-   * Run once per tenant before triggering 360.
+   * Admin-only: feedback types are tenant-wide config.
    */
-  ensureFeedbackTypes: protectedProcedure.mutation(async ({ ctx }) => {
+  ensureFeedbackTypes: adminProcedure.mutation(async ({ ctx }) => {
     const dbi = await getDb();
     if (!dbi) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
 

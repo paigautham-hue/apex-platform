@@ -47,6 +47,7 @@ export default function VoiceJournalCapture({
   const recognitionRef = useRef<any>(null);
   const baseTextRef = useRef("");
   const finalAccumRef = useRef("");
+  const pendingRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -61,7 +62,10 @@ export default function VoiceJournalCapture({
     rec.interimResults = true;
     rec.lang = locale;
 
-    rec.onstart = () => setState("listening");
+    rec.onstart = () => {
+      pendingRef.current = false;
+      setState("listening");
+    };
 
     rec.onresult = (event: any) => {
       let interimText = "";
@@ -93,10 +97,12 @@ export default function VoiceJournalCapture({
       } else if (code !== "aborted") {
         toast.error(`Voice error: ${code}`);
       }
+      pendingRef.current = false;
       setState("idle");
     };
 
     rec.onend = () => {
+      pendingRef.current = false;
       setState("idle");
       if (finalAccumRef.current && onSegmentComplete) {
         onSegmentComplete(finalAccumRef.current.trim());
@@ -114,7 +120,8 @@ export default function VoiceJournalCapture({
   }, [locale, onSegmentComplete, onTextChange]);
 
   const start = () => {
-    if (!recognitionRef.current || state !== "idle") return;
+    if (!recognitionRef.current || state !== "idle" || pendingRef.current) return;
+    pendingRef.current = true;
     baseTextRef.current = currentText;
     finalAccumRef.current = "";
     setInterim("");
@@ -122,23 +129,25 @@ export default function VoiceJournalCapture({
     try {
       recognitionRef.current.start();
     } catch (err) {
-      // Already started — restart cleanly
-      try {
-        recognitionRef.current.stop();
-        setTimeout(() => recognitionRef.current?.start(), 200);
-      } catch {}
+      pendingRef.current = false;
+      setState("idle");
     }
   };
 
   const stop = () => {
-    if (!recognitionRef.current || state !== "listening") return;
+    if (!recognitionRef.current || state !== "listening" || pendingRef.current) return;
+    pendingRef.current = true;
     setState("stopping");
     try {
       recognitionRef.current.stop();
-    } catch {}
+    } catch {
+      pendingRef.current = false;
+      setState("idle");
+    }
   };
 
   const toggle = () => {
+    if (pendingRef.current) return;
     if (state === "listening") stop();
     else start();
   };

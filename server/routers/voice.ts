@@ -11,11 +11,11 @@
 
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { and, eq, desc } from "drizzle-orm";
+import { and, eq, desc, inArray } from "drizzle-orm";
 import { protectedProcedure, router } from "../_core/trpc";
 import * as db from "../db";
 import { getDb } from "../db";
-import { resolveViewerScope } from "../scope";
+import { resolveViewerScope, canViewPerson } from "../scope";
 import { classifyVoiceIntent } from "../ai-voice-intent";
 import {
   voiceSessions,
@@ -57,7 +57,12 @@ export const voiceRouter = router({
         const reps = await dbi
           .select({ name: persons.name })
           .from(persons)
-          .where(eq(persons.tenantId, TENANT_ID));
+          .where(
+            and(
+              eq(persons.tenantId, TENANT_ID),
+              inArray(persons.id, scope.directReportPersonIds)
+            )
+          );
         availableSubjects = reps.filter(r => r.name).map(r => r.name);
       }
 
@@ -185,7 +190,8 @@ export const voiceRouter = router({
           return { ok: true, entityType: "selfReflection", entityId: (insert as any).insertId ?? 0 };
         }
         case "OBSERVATION": {
-          // Resolve subject person by name (best-effort)
+          // Resolve subject person by name (best-effort) — but ONLY if the
+          // caller has authority over them. Otherwise default to self.
           let subjectId = person.id; // fallback to self
           if (input.subjectPersonName && dbi) {
             const matches = await dbi
@@ -193,7 +199,14 @@ export const voiceRouter = router({
               .from(persons)
               .where(and(eq(persons.tenantId, TENANT_ID), eq(persons.name, input.subjectPersonName)))
               .limit(1);
-            if (matches.length > 0) subjectId = matches[0].id;
+            if (matches.length > 0) {
+              const candidateId = matches[0].id;
+              // Authorization: only allow observations about self OR people the caller has authority over
+              if (candidateId === person.id || canViewPerson(scope, candidateId)) {
+                subjectId = candidateId;
+              }
+              // Otherwise silently fall back to self — prevents cross-scope observations
+            }
           }
           const insert = await dbi.insert(observations).values({
             tenantId: TENANT_ID,
@@ -270,6 +283,7 @@ export const voiceRouter = router({
 
   /**
    * End a voice session — store final transcript + summary.
+   * Auth-gated: caller must own the session.
    */
   endSession: protectedProcedure
     .input(
@@ -281,9 +295,23 @@ export const voiceRouter = router({
         durationSeconds: z.number().optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, TENANT_ID);
+      if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person not found" });
       const dbi = await getDb();
       if (!dbi) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      // Verify ownership before updating
+      const sessionRows = await dbi
+        .select()
+        .from(voiceSessions)
+        .where(and(eq(voiceSessions.tenantId, TENANT_ID), eq(voiceSessions.id, input.sessionId)))
+        .limit(1);
+      if (sessionRows.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Session not found" });
+      }
+      if (sessionRows[0].personId !== person.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Cannot end someone else's session" });
+      }
       await dbi
         .update(voiceSessions)
         .set({
@@ -293,7 +321,7 @@ export const voiceRouter = router({
           topicsDiscussed: input.topicsDiscussed ?? null,
           durationSeconds: input.durationSeconds ?? null,
         })
-        .where(eq(voiceSessions.id, input.sessionId));
+        .where(and(eq(voiceSessions.tenantId, TENANT_ID), eq(voiceSessions.id, input.sessionId), eq(voiceSessions.personId, person.id)));
       return { ok: true };
     }),
 

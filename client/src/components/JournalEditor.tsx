@@ -70,12 +70,16 @@ export default function JournalEditor({
     return initialValue;
   });
   const [state, setState] = useState<SaveState>("idle");
-  const [online, setOnline] = useState(typeof navigator === "undefined" ? true : navigator.onLine);
+  const [online, setOnline] = useState(() => {
+    if (typeof navigator === "undefined") return true;
+    return navigator.onLine;
+  });
   const debounceRef = useRef<number | null>(null);
   const lastSavedRef = useRef(initialValue);
 
-  // Track online/offline
+  // Track online/offline (SSR-safe)
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const goOnline = () => {
       setOnline(true);
       // Try to flush draft on reconnect

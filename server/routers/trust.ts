@@ -55,14 +55,21 @@ export const trustRouter = router({
         .limit(1);
       if (recent.length > 0) return { ok: true, deduped: true };
 
-      await dbi.insert(entryViews).values({
-        tenantId: TENANT_ID,
-        viewerPersonId: viewer.id,
-        entityType: input.entityType,
-        entityId: input.entityId,
-        ownerPersonId: input.ownerPersonId,
-      });
-      return { ok: true };
+      try {
+        const result: any = await dbi.insert(entryViews).values({
+          tenantId: TENANT_ID,
+          viewerPersonId: viewer.id,
+          entityType: input.entityType,
+          entityId: input.entityId,
+          ownerPersonId: input.ownerPersonId,
+        });
+        return { ok: true, viewId: result?.insertId ?? null };
+      } catch (err) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: err instanceof Error ? err.message : "Could not record view",
+        });
+      }
     }),
 
   /**

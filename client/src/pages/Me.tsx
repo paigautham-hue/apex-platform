@@ -48,8 +48,10 @@ export default function Me() {
   }
 
   // Determine what to render: CEOs (with companies) get Island; others get Bridge.
-  const isCeoLeader = viewer.tier === "CEO" && (viewer.ownedOrgUnitIds?.length ?? 0) > 0;
-  const hasRoleMandates = !!viewer.primaryRole && Array.isArray(viewer.primaryRole.successMetrics) && (viewer.primaryRole.successMetrics?.length ?? 0) > 0;
+  const ownedUnits = Array.isArray(viewer.ownedOrgUnitIds) ? viewer.ownedOrgUnitIds : [];
+  const isCeoLeader = viewer.tier === "CEO" && ownedUnits.length > 0;
+  const successMetrics = (viewer.primaryRole?.successMetrics ?? []) as string[];
+  const hasRoleMandates = !!viewer.primaryRole && Array.isArray(successMetrics) && successMetrics.length > 0;
 
   return (
     <div className="space-y-4 max-w-5xl mx-auto px-4 md:px-6 py-4">

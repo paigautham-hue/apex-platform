@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Mic, Sparkles, AlertTriangle, Clock, Target, MessageSquare, X } from "lucide-react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 
 type Action = {
   kind: "INSIGHT" | "CYCLE" | "ASSESSMENT" | "JOURNAL" | "PULSE" | "GREETING";
@@ -47,9 +47,14 @@ export default function PrimaryActionCard({ scope, viewerPersonId, viewerName }:
   const { data: serverFocus } = trpc.rhythm.getMyDailyFocus.useQuery(undefined, { staleTime: 60_000 });
   const markFocus = trpc.rhythm.markFocus.useMutation();
 
-  // Mark as VIEWED on first render
+  // Mark as VIEWED — only once per kind change, guarded by ref to avoid
+  // re-firing if mutation reference changes between renders
+  const markedKindRef = useRef<string | null>(null);
   useEffect(() => {
-    if (serverFocus) markFocus.mutate({ action: "VIEWED" });
+    if (!serverFocus) return;
+    if (markedKindRef.current === serverFocus.kind) return;
+    markedKindRef.current = serverFocus.kind;
+    markFocus.mutate({ action: "VIEWED" });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serverFocus?.kind]);
 

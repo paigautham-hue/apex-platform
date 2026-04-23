@@ -15,6 +15,8 @@ import {
   type MemoryCategory,
   type OrgScope,
 } from "../agentic-memory";
+import { resolveViewerScope, canViewPerson, canViewOrgUnit } from "../scope";
+import { and as _and, inArray as _inArray } from "drizzle-orm";
 import { agenticMemories } from "../../drizzle/schema";
 
 const TENANT_ID = 1;
@@ -33,7 +35,27 @@ export const memoryRouter = router({
         confidence: z.number().min(0).max(1).optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      // Authorization: caller must have authority over the subject
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, TENANT_ID);
+      if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person not found" });
+      const scope = await resolveViewerScope(person, TENANT_ID);
+      if (input.subjectPersonId != null) {
+        const subj = await db.getPersonById(input.subjectPersonId, TENANT_ID);
+        if (!subj) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Subject person not in your tenant" });
+        }
+        if (!canViewPerson(scope, input.subjectPersonId)) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Cannot store memories about this person" });
+        }
+      }
+      if (input.subjectOrgUnitId != null && !canViewOrgUnit(scope, input.subjectOrgUnitId)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Cannot store memories about this org unit" });
+      }
+      // FUND scope writes require fund-wide authority
+      if (input.orgScope === "FUND" && !scope.isFundWide) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Fund-wide memories require fund-wide authority" });
+      }
       return await storeMemory({
         tenantId: TENANT_ID,
         subjectPersonId: input.subjectPersonId,
@@ -60,11 +82,27 @@ export const memoryRouter = router({
         minConfidence: z.number().min(0).max(1).optional(),
       })
     )
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, TENANT_ID);
+      if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person not found" });
+      const scope = await resolveViewerScope(person, TENANT_ID);
+      // Authorize subject filters
+      if (input.subjectPersonId != null && !canViewPerson(scope, input.subjectPersonId)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Cannot retrieve memories about this person" });
+      }
+      if (input.subjectOrgUnitId != null && !canViewOrgUnit(scope, input.subjectOrgUnitId)) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Cannot retrieve memories about this org unit" });
+      }
+      // FUND scope retrieval requires fund-wide authority
+      if (input.orgScopes?.includes("FUND") && !scope.isFundWide) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Fund-wide memories require fund-wide authority" });
+      }
+      // Default subjectPersonId to caller if no filter given (prevents broad retrieval)
+      const effectiveSubjectId = input.subjectPersonId ?? (scope.isFundWide ? undefined : person.id);
       return await retrieveMemoriesHybrid({
         tenantId: TENANT_ID,
         query: input.query,
-        subjectPersonId: input.subjectPersonId,
+        subjectPersonId: effectiveSubjectId,
         subjectOrgUnitId: input.subjectOrgUnitId,
         categories: input.categories as MemoryCategory[] | undefined,
         orgScopes: input.orgScopes as OrgScope[] | undefined,
@@ -92,19 +130,33 @@ export const memoryRouter = router({
   }),
 
   /**
-   * Memories needing verification — admin-style inbox.
+   * Memories needing verification — scope-filtered to caller's authority.
+   * Fund-wide viewers see all pending; everyone else sees only memories
+   * about themselves OR people they have authority over.
    */
   pendingVerification: protectedProcedure
     .input(z.object({ limit: z.number().default(50) }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, TENANT_ID);
+      if (!person) return [];
+      const scope = await resolveViewerScope(person, TENANT_ID);
       const dbi = await getDb();
       if (!dbi) return [];
+      const allowedSubjectIds = scope.isFundWide
+        ? null
+        : Array.from(new Set([person.id, ...scope.subordinatePersonIds]));
+      const baseConds = [
+        eq(agenticMemories.tenantId, TENANT_ID),
+        eq(agenticMemories.needsVerification, true),
+      ];
+      if (allowedSubjectIds) {
+        if (allowedSubjectIds.length === 0) return [];
+        baseConds.push(_inArray(agenticMemories.subjectPersonId, allowedSubjectIds));
+      }
       return await dbi
         .select()
         .from(agenticMemories)
-        .where(
-          and(eq(agenticMemories.tenantId, TENANT_ID), eq(agenticMemories.needsVerification, true))
-        )
+        .where(and(...baseConds))
         .orderBy(desc(agenticMemories.createdAt))
         .limit(input.limit);
     }),
@@ -114,12 +166,30 @@ export const memoryRouter = router({
     .mutation(async ({ ctx, input }) => {
       const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, TENANT_ID);
       if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person not found" });
+      const dbi = await getDb();
+      if (!dbi) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      // Verify ownership / authority before allowing approve OR delete
+      const rows = await dbi
+        .select()
+        .from(agenticMemories)
+        .where(and(eq(agenticMemories.tenantId, TENANT_ID), eq(agenticMemories.id, input.memoryId)))
+        .limit(1);
+      if (rows.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Memory not found" });
+      const memory = rows[0];
+      const scope = await resolveViewerScope(person, TENANT_ID);
+      const isSubject = memory.subjectPersonId === person.id;
+      const hasAuthority = memory.subjectPersonId != null && canViewPerson(scope, memory.subjectPersonId);
+      if (!isSubject && !hasAuthority) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Cannot verify or delete this memory" });
+      }
       await verifyMemory(input.memoryId, person.id, input.approve);
       return { ok: true };
     }),
 
   /**
    * Update a memory (e.g., user edits the value).
+   * Auth-gated: caller must be the subject of the memory (their own memory)
+   * OR have authority over the subject (Chairman/CEO over a subordinate's memories).
    */
   update: protectedProcedure
     .input(
@@ -129,9 +199,27 @@ export const memoryRouter = router({
         confidence: z.number().min(0).max(1).optional(),
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const person = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, TENANT_ID);
+      if (!person) throw new TRPCError({ code: "NOT_FOUND", message: "Person not found" });
       const dbi = await getDb();
       if (!dbi) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      // Verify ownership / authority over the memory
+      const rows = await dbi
+        .select()
+        .from(agenticMemories)
+        .where(and(eq(agenticMemories.tenantId, TENANT_ID), eq(agenticMemories.id, input.memoryId)))
+        .limit(1);
+      if (rows.length === 0) throw new TRPCError({ code: "NOT_FOUND", message: "Memory not found" });
+      const memory = rows[0];
+      const scope = await resolveViewerScope(person, TENANT_ID);
+      const isSubject = memory.subjectPersonId === person.id;
+      const hasAuthority = memory.subjectPersonId != null && canViewPerson(scope, memory.subjectPersonId);
+      if (!isSubject && !hasAuthority) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Cannot edit this memory" });
+      }
+
       const patch: Record<string, any> = {};
       if (input.memoryValue) patch.memoryValue = input.memoryValue;
       if (input.confidence != null) patch.confidence = String(input.confidence);
