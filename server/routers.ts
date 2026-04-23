@@ -14,6 +14,9 @@ import { rhythmRouter } from "./routers/rhythm";
 import { insightsRouter } from "./routers/insights";
 import { trustRouter } from "./routers/trust";
 import { memoryRouter } from "./routers/memory";
+import { calendarRouter } from "./routers/calendar";
+import { shareRouter } from "./routers/share";
+import { financialAnalyticsRouter } from "./routers/financialAnalytics";
 import { processUploadedFile } from "./ai-extraction";
 import * as db from "./db";
 import * as governanceNotifications from "./governance-notifications";
@@ -1494,6 +1497,15 @@ export const appRouter = router({
 
   // Agentic memory — hybrid retrieval, verification UX
   memory: memoryRouter,
+
+  // Calendar — Google + Outlook OAuth + event sync
+  calendar: calendarRouter,
+
+  // Share — view-only board pack share links + JSON snapshots
+  share: shareRouter,
+
+  // Financial analytics — variance alerts + benchmarks
+  financialAnalytics: financialAnalyticsRouter,
 
   // Access control + preferences
   accessControl: accessControlRouter,

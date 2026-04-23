@@ -13,6 +13,7 @@ import { DollarSign, Lock } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import VarianceAlerts from "@/components/VarianceAlerts";
 
 const TENANT_ID = 1;
 
@@ -215,6 +216,8 @@ export default function FinancialCockpit() {
           FY27 budget vs YTD actuals across all portfolio companies. Figures in ₹ Crore.
         </p>
       </div>
+
+      <VarianceAlerts />
 
       <Card>
         <CardHeader>
