@@ -37,21 +37,11 @@ export default function Group() {
     { enabled: !isLoading && !!viewer }
   );
 
-  if (isLoading || treeLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Spinner />
-      </div>
-    );
-  }
-
-  if (!viewer) return null;
-
+  // Derive data BEFORE any early returns to satisfy Rules of Hooks
   const units = tree?.units ?? [];
   const persons = tree?.persons ?? [];
   const roles = tree?.roles ?? [];
 
-  // Build hierarchy: top-level units (no parent in this scoped set)
   const visibleUnitIds = new Set(units.map(u => u.id));
   const topLevel = units.filter(u => u.parentOrgUnitId == null || !visibleUnitIds.has(u.parentOrgUnitId));
 
@@ -64,6 +54,7 @@ export default function Group() {
   }
   const childrenOf = (id: number) => units.filter(u => u.parentOrgUnitId === id);
 
+  // useMemo must be called before any conditional returns
   const summary = useMemo(() => {
     return {
       orgUnitCount: units.length,
@@ -71,6 +62,16 @@ export default function Group() {
       companyCount: units.filter(u => u.type === "PORTFOLIO_COMPANY").length,
     };
   }, [units, persons]);
+
+  if (isLoading || treeLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Spinner />
+      </div>
+    );
+  }
+
+  if (!viewer) return null;
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto px-4 md:px-6 py-4">
