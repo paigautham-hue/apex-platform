@@ -536,6 +536,21 @@ function PaceAppraisalWizard({ personId, personName, tenantId, onClose }: {
     onSuccess: () => { toast.success("Appraisal saved successfully"); setStep(5); },
     onError: (e) => toast.error(e.message),
   });
+  const exportDocxMutation = trpc.appraisal.pace.exportDocx.useMutation({
+    onSuccess: (data) => {
+      const byteCharacters = atob(data.base64);
+      const byteNumbers = new Array(byteCharacters.length).fill(0).map((_, i) => byteCharacters.charCodeAt(i));
+      const blob = new Blob([new Uint8Array(byteNumbers)], { type: data.mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("PACE document downloaded");
+    },
+    onError: (e) => toast.error("Export failed: " + e.message),
+  });
 
   // Initialise KPI inputs when context loads and we move to step 2
   const initKpiInputs = useCallback(() => {
@@ -1145,7 +1160,23 @@ function PaceAppraisalWizard({ personId, personName, tenantId, onClose }: {
                   {quadrant.replace(/_/g, " ")}
                 </Badge>
               )}
-              <Button onClick={onClose} size="lg">Close</Button>
+              <div className="flex items-center justify-center gap-3 flex-wrap">
+                {appraisalResult?.id && (
+                  <Button
+                    variant="outline"
+                    size="lg"
+                    onClick={() => exportDocxMutation.mutate({ id: appraisalResult.id })}
+                    disabled={exportDocxMutation.isPending}
+                  >
+                    {exportDocxMutation.isPending ? (
+                      <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Generating Word…</>
+                    ) : (
+                      <><Download className="h-4 w-4 mr-2" />Download as Word (.docx)</>
+                    )}
+                  </Button>
+                )}
+                <Button onClick={onClose} size="lg">Close</Button>
+              </div>
             </CardContent>
           </Card>
         )}
@@ -1154,14 +1185,47 @@ function PaceAppraisalWizard({ personId, personName, tenantId, onClose }: {
   );
 }
 
+// ─── Appraisal Export Button (reusable) ─────────────────────────────────────
+function AppraisalExportButton({ appraisalId }: { appraisalId: number }) {
+  const exportDocxMutation = trpc.appraisal.pace.exportDocx.useMutation({
+    onSuccess: (data) => {
+      const byteCharacters = atob(data.base64);
+      const byteNumbers = new Array(byteCharacters.length).fill(0).map((_, i) => byteCharacters.charCodeAt(i));
+      const blob = new Blob([new Uint8Array(byteNumbers)], { type: data.mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("PACE document downloaded");
+    },
+    onError: (e) => toast.error("Export failed: " + e.message),
+  });
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      onClick={() => exportDocxMutation.mutate({ id: appraisalId })}
+      disabled={exportDocxMutation.isPending}
+    >
+      {exportDocxMutation.isPending ? (
+        <><Loader2 className="h-3 w-3 mr-1.5 animate-spin" />Generating…</>
+      ) : (
+        <><Download className="h-3 w-3 mr-1.5" />Download Word</>
+      )}
+    </Button>
+  );
+}
 // ─── Main PersonProfile ───────────────────────────────────────────────────────
 export default function PersonProfile({ personId }: { personId: number }) {
   const [, setLocation] = useLocation();
   const [editingReportsTo, setEditingReportsTo] = useState(false);
   const [selectedReportsTo, setSelectedReportsTo] = useState<string>("");
-  const [showAppraisalWizard, setShowAppraisalWizard] = useState(false);
-
+   const [showAppraisalWizard, setShowAppraisalWizard] = useState(false);
+  const [expandedAppraisalId, setExpandedAppraisalId] = useState<number | null>(null);
   const { data: person, isLoading } = trpc.person.getById.useQuery({ personId, tenantId: 1 });
+  const { data: pastAppraisals } = trpc.appraisal.pace.list.useQuery({ personId });
   const { data: observations } = trpc.observation.getByPerson.useQuery({ personId, tenantId: 1 });
   const { data: reportsTo, refetch: refetchReportsTo } = trpc.person.getReportsTo.useQuery({ personId, tenantId: 1 });
   const { data: allPeople } = trpc.person.list.useQuery({ tenantId: 1 });
@@ -1391,9 +1455,84 @@ export default function PersonProfile({ personId }: { personId: number }) {
           </Card>
         )}
 
-        {/* Self-Appraisal Upload */}
+         {/* Self-Appraisal Upload */}
         <SelfAppraisalCard personId={personId} tenantId={1} />
-
+        {/* Appraisal History */}
+        {pastAppraisals && pastAppraisals.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ClipboardList className="h-5 w-5 text-accent" />
+                Appraisal History ({pastAppraisals.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {pastAppraisals.map((a) => {
+                const pd = a.paceData as any;
+                const isExpanded = expandedAppraisalId === a.id;
+                return (
+                  <div key={a.id} className="border rounded-lg overflow-hidden">
+                    <button
+                      className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors text-left"
+                      onClick={() => setExpandedAppraisalId(isExpanded ? null : a.id)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Badge variant={a.status === 'FINAL' ? 'default' : 'secondary'} className="text-xs">
+                          {a.status ?? 'DRAFT'}
+                        </Badge>
+                        <span className="font-medium text-sm">FY {a.fiscalYear ?? 'Unknown'}</span>
+                        {pd?.quadrant && (
+                          <Badge variant="outline" className="text-xs">{pd.quadrant.replace(/_/g, ' ')}</Badge>
+                        )}
+                        {pd?.fitDetermination && (
+                          <span className="text-xs text-muted-foreground">{pd.fitDetermination}</span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(a.createdAt).toLocaleDateString()}
+                        </span>
+                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                      </div>
+                    </button>
+                    {isExpanded && (
+                      <div className="px-4 pb-4 space-y-3 border-t bg-muted/20">
+                        {a.aiSynthesisSummary && (
+                          <div className="pt-3">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">AI Summary</p>
+                            <p className="text-sm">{a.aiSynthesisSummary}</p>
+                          </div>
+                        )}
+                        {pd?.appraiserOverallComments && (
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Appraiser Overall Comments</p>
+                            <p className="text-sm">{pd.appraiserOverallComments}</p>
+                          </div>
+                        )}
+                        {pd?.kpiRows && pd.kpiRows.length > 0 && (
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">KPI Assessment ({pd.kpiRows.length} KPIs)</p>
+                            <div className="space-y-2">
+                              {pd.kpiRows.map((row: any, i: number) => (
+                                <div key={i} className="bg-background rounded p-2 text-xs">
+                                  <p className="font-medium">{row.goalName || `KPI ${i + 1}`} {row.weightage && <span className="text-muted-foreground">({row.weightage})</span>}</p>
+                                  {row.appraiserComments && <p className="text-muted-foreground mt-0.5">{row.appraiserComments}</p>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        <div className="flex gap-2 pt-1">
+                          <AppraisalExportButton appraisalId={a.id} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
         {/* Recent Observations */}
         <Card>
           <CardHeader>

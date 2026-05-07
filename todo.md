@@ -780,3 +780,11 @@
 - [x] Frontend: Step 3 - AI Enhancement loading state (AI polishes Chairman's input)
 - [x] Frontend: Step 4 - Side-by-side review (Chairman raw vs AI-polished, accept/reject/edit per field)
 - [x] Frontend: Step 5 - Finalise & Export (rating, quadrant, Word export)
+
+## Feature: PACE Wizard Word Export, Appraisal History, Bulk Appraisals Page ✅
+- [x] Backend: exportDocx mutation — generate filled PACE Word doc from saved paceAppraisal
+- [x] Backend: pace.listAll query — list all persons with their latest appraisal status
+- [x] Frontend: Word export button on Step 5 of PACE wizard
+- [x] Frontend: Appraisal History accordion/tab on PersonProfile (past appraisals list)
+- [x] Frontend: /appraisals bulk status page — all direct reports with status badges and Start Appraisal button
+- [x] Add /appraisals route to App.tsx and sidebar navigation

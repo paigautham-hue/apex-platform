@@ -527,6 +527,164 @@ Respond with JSON in this exact format:
       return appraisal;
     }),
 
+  /** List all persons with their latest appraisal status (for bulk view) */
+  listAll: protectedProcedure
+    .input(z.object({ fiscalYear: z.string().optional() }))
+    .query(async ({ ctx, input }) => {
+      const tenantId = 1;
+      const caller = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, tenantId);
+      if (!caller) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const database = await db.getDb();
+      if (!database) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      // Get all persons in the tenant
+      const allPersons = await database
+        .select()
+        .from(persons)
+        .where(eq(persons.tenantId, caller.tenantId))
+        .orderBy(persons.name);
+
+      // Get all active roles
+      const allRoles = await database
+        .select()
+        .from(roles)
+        .where(and(eq(roles.tenantId, caller.tenantId), eq(roles.isActive, true)));
+
+      // Get all pace appraisals (optionally filtered by fiscal year)
+      const appraisalQuery = database
+        .select()
+        .from(paceAppraisals)
+        .where(eq(paceAppraisals.tenantId, caller.tenantId))
+        .orderBy(desc(paceAppraisals.createdAt));
+      const allAppraisals = await appraisalQuery;
+
+      // Build a map: personId -> latest appraisal
+      const latestByPerson = new Map<number, typeof allAppraisals[0]>();
+      for (const a of allAppraisals) {
+        if (!input.fiscalYear || a.fiscalYear === input.fiscalYear) {
+          if (!latestByPerson.has(a.personId)) {
+            latestByPerson.set(a.personId, a);
+          }
+        }
+      }
+
+      // Build role map
+      const roleByPerson = new Map<number, typeof allRoles[0]>();
+      for (const r of allRoles) roleByPerson.set(r.personId, r);
+
+      return allPersons.map(p => ({
+        person: p,
+        role: roleByPerson.get(p.id) ?? null,
+        latestAppraisal: latestByPerson.get(p.id) ?? null,
+      }));
+    }),
+
+  /** Export a saved appraisal as a Word document */
+  exportDocx: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = 1;
+      const caller = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, tenantId);
+      if (!caller) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const database = await db.getDb();
+      if (!database) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [appraisal] = await database
+        .select()
+        .from(paceAppraisals)
+        .where(and(eq(paceAppraisals.id, input.id), eq(paceAppraisals.tenantId, caller.tenantId)));
+      if (!appraisal) throw new TRPCError({ code: "NOT_FOUND" });
+
+      const [person] = await database.select().from(persons).where(eq(persons.id, appraisal.personId));
+      const [role] = await database.select().from(roles).where(and(
+        eq(roles.personId, appraisal.personId),
+        eq(roles.isActive, true)
+      ));
+
+      const pd = appraisal.paceData as any;
+      const kpiRows: any[] = pd?.kpiRows ?? [];
+
+      // Build Word document using docx package
+      const { Document, Packer, Paragraph, Table, TableRow, TableCell, TextRun, HeadingLevel, AlignmentType, WidthType, BorderStyle } = await import("docx");
+
+      const headerRows = [
+        ["Company Name", "Manipal Group"],
+        ["Name", person?.name ?? ""],
+        ["Designation", role?.title ?? ""],
+        ["Fiscal Year", appraisal.fiscalYear ?? ""],
+        ["Quadrant", pd?.quadrant ?? ""],
+        ["Fit Determination", pd?.fitDetermination ?? ""],
+      ];
+
+      const makeCell = (text: string, bold = false, shaded = false) => new TableCell({
+        shading: shaded ? { fill: "E8EEF7" } : undefined,
+        children: [new Paragraph({
+          children: [new TextRun({ text, bold, size: 20 })],
+        })],
+      });
+
+      const headerTable = new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: headerRows.map(([label, value]) => new TableRow({
+          children: [makeCell(label, true, true), makeCell(value)],
+        })),
+      });
+
+      // KPI table
+      const kpiHeaderRow = new TableRow({
+        children: ["#", "Goal Name", "Weightage", "Employee Self-Appraisal", "Appraiser Comments"].map(
+          (h) => makeCell(h, true, true)
+        ),
+      });
+      const kpiDataRows = kpiRows.map((row: any, i: number) => new TableRow({
+        children: [
+          makeCell(row.rowNumber ?? String(i + 1)),
+          makeCell(row.goalName ?? ""),
+          makeCell(row.weightage ?? ""),
+          makeCell(row.employeeSelfAppraisal ?? row.selfAppraisal ?? ""),
+          makeCell(row.appraiserComments ?? ""),
+        ],
+      }));
+
+      const kpiTable = new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: [kpiHeaderRow, ...kpiDataRows],
+      });
+
+      const doc = new Document({
+        sections: [{
+          children: [
+            new Paragraph({ text: "PACE Performance Appraisal", heading: HeadingLevel.HEADING_1 }),
+            new Paragraph({ text: "" }),
+            headerTable,
+            new Paragraph({ text: "" }),
+            new Paragraph({ text: "Performance Assessment", heading: HeadingLevel.HEADING_2 }),
+            new Paragraph({ text: "" }),
+            kpiTable,
+            new Paragraph({ text: "" }),
+            new Paragraph({ text: "Overall Comments", heading: HeadingLevel.HEADING_2 }),
+            new Paragraph({ text: "" }),
+            new Paragraph({ children: [new TextRun({ text: "Employee: ", bold: true }), new TextRun({ text: pd?.employeeOverallComments ?? "" })] }),
+            new Paragraph({ text: "" }),
+            new Paragraph({ children: [new TextRun({ text: "Appraiser: ", bold: true }), new TextRun({ text: pd?.appraiserOverallComments ?? "" })] }),
+            ...(pd?.developmentGoals?.length > 0 ? [
+              new Paragraph({ text: "" }),
+              new Paragraph({ text: "Leadership Development Plan", heading: HeadingLevel.HEADING_2 }),
+              ...pd.developmentGoals.map((g: string, i: number) => new Paragraph({ text: `${i + 1}. ${g}` })),
+            ] : []),
+          ],
+        }],
+      });
+
+      const buffer = await Packer.toBuffer(doc);
+      const base64 = buffer.toString("base64");
+      const fileName = `PACE-${person?.name?.replace(/\s+/g, "-") ?? "Appraisal"}-${appraisal.fiscalYear ?? "FY"}.docx`;
+
+      return { base64, fileName, mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" };
+    }),
+
   /** List appraisals for a person */
   list: protectedProcedure
     .input(z.object({ personId: z.number() }))

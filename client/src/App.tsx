@@ -27,6 +27,7 @@ import ReviewDraftPreview from "./pages/ReviewDraftPreview";
 import NotificationPreferences from "./pages/NotificationPreferences";
 import AccessChallenge from "./pages/AccessChallenge";
 import AccessGrants from "./pages/AccessGrants";
+import Appraisals from "./pages/Appraisals";
 import MyBridge from "./pages/MyBridge";
 import MyIsland from "./pages/MyIsland";
 import ChairmanDashboard from "./pages/ChairmanDashboard";
@@ -127,6 +128,12 @@ function Router() {
       <Route path="/people">
         <DashboardLayout>
           <People />
+        </DashboardLayout>
+      </Route>
+
+      <Route path="/appraisals">
+        <DashboardLayout>
+          <Appraisals />
         </DashboardLayout>
       </Route>
       
