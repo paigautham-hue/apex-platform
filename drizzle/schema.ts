@@ -104,6 +104,8 @@ export const roles = mysqlTable("roles", {
   endDate: timestamp("endDate"),
   reportsToRoleId: int("reportsToRoleId"),
   scopeDescription: text("scopeDescription"),
+  rolePurpose: text("rolePurpose"),
+  keyResponsibilities: json("keyResponsibilities").$type<string[]>(),
   successMetrics: json("successMetrics").$type<string[]>(),
   roleType: mysqlEnum("roleType", ["CEO", "CXO", "CXO_PLUS_ONE", "CHRO", "BOARD_MEMBER", "CHAIRMAN", "GROUP_CEO", "GROUP_CHRO"]).notNull(),
   isActive: boolean("isActive").default(true),
@@ -1178,3 +1180,74 @@ export const shareLinks = mysqlTable("shareLinks", {
 
 export type ShareLink = typeof shareLinks.$inferSelect;
 export type InsertShareLink = typeof shareLinks.$inferInsert;
+
+// ============================================================================
+// PACE SELF-APPRAISALS — uploaded PACE documents with extracted structured data
+// ============================================================================
+export const selfAppraisals = mysqlTable("selfAppraisals", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  personId: int("personId").notNull(),
+  fileUrl: text("fileUrl").notNull(),
+  fileKey: varchar("fileKey", { length: 500 }).notNull(),
+  fileName: varchar("fileName", { length: 255 }).notNull(),
+  fiscalYear: varchar("fiscalYear", { length: 20 }),
+  // Extracted structured data from the PACE document
+  extractedData: json("extractedData").$type<{
+    header?: { name?: string; company?: string; designation?: string; quadrant?: string; date?: string };
+    kpiRows?: Array<{
+      orgUnit?: string; goalName?: string; goalObjective?: string; weightage?: string;
+      employeeSelfAppraisal?: string; appraiserComments?: string;
+    }>;
+    financialTable?: Array<{ lineItem?: string; fy25Actual?: string; fy26Aop?: string; fy26Actual?: string; varVsAop?: string }>;
+    developmentGoals?: string[];
+    employeeOverallComments?: string;
+    appraiserOverallComments?: string;
+  }>(),
+  uploadedById: int("uploadedById").notNull(),
+  uploadedAt: timestamp("uploadedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("selfAppraisals_tenantId_idx").on(table.tenantId),
+  personIdx: index("selfAppraisals_personId_idx").on(table.personId),
+}));
+
+export type SelfAppraisal = typeof selfAppraisals.$inferSelect;
+export type InsertSelfAppraisal = typeof selfAppraisals.$inferInsert;
+
+// ============================================================================
+// PACE APPRAISALS — chairman/manager completed appraisal records
+// ============================================================================
+export const paceAppraisals = mysqlTable("paceAppraisals", {
+  id: int("id").autoincrement().primaryKey(),
+  tenantId: int("tenantId").notNull(),
+  personId: int("personId").notNull(),
+  selfAppraisalId: int("selfAppraisalId"),
+  appraiserId: int("appraiserId").notNull(),
+  fiscalYear: varchar("fiscalYear", { length: 20 }),
+  // AI-generated and human-edited PACE data
+  paceData: json("paceData").$type<{
+    kpiRows?: Array<{
+      orgUnit?: string; goalName?: string; goalObjective?: string; weightage?: string;
+      employeeSelfAppraisal?: string; appraiserComments?: string;
+    }>;
+    financialTable?: Array<{ lineItem?: string; fy25Actual?: string; fy26Aop?: string; fy26Actual?: string; varVsAop?: string }>;
+    developmentGoals?: string[];
+    employeeOverallComments?: string;
+    appraiserOverallComments?: string;
+    quadrant?: string;
+    fitDetermination?: string;
+  }>(),
+  aiSynthesisSummary: text("aiSynthesisSummary"),
+  status: mysqlEnum("status", ["AI_DRAFT", "IN_PROGRESS", "FINAL"]).default("AI_DRAFT"),
+  exportedFileUrl: text("exportedFileUrl"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+}, (table) => ({
+  tenantIdx: index("paceAppraisals_tenantId_idx").on(table.tenantId),
+  personIdx: index("paceAppraisals_personId_idx").on(table.personId),
+  appraiserIdx: index("paceAppraisals_appraiserId_idx").on(table.appraiserId),
+}));
+
+export type PaceAppraisal = typeof paceAppraisals.$inferSelect;
+export type InsertPaceAppraisal = typeof paceAppraisals.$inferInsert;

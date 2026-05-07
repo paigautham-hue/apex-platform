@@ -746,3 +746,26 @@
 - [x] Update PersonProfile page with "Reports To" field + edit dropdown
 - [x] Show role details (title, type, start date) on PersonProfile
 - [x] Show company/org unit on PersonProfile
+
+## Feature: Role Mandate / Job Description on PersonProfile ✅
+- [x] Add rolePurpose (text) and keyResponsibilities (json) columns to roles table
+- [x] Apply migration SQL (migration 0005)
+- [x] Add updateRoleMandate mutation in personRouter
+- [x] Add RoleMandateCard section to PersonProfile (editable Purpose, Responsibilities, Success Metrics)
+
+## Feature: PACE Self-Appraisal Upload ✅
+- [x] Add selfAppraisals table to schema
+- [x] Apply migration SQL (migration 0005)
+- [x] Install mammoth (docx parser) and docx (Word generator)
+- [x] Create server/paceParser.ts for PACE structure extraction
+- [x] Add selfAppraisal tRPC router (upload, list, delete) in server/routers/appraisal.ts
+- [x] Add SelfAppraisalCard to PersonProfile with drag-and-drop, extraction preview, history list
+
+## Feature: AI Chairman Appraisal Wizard (PACE-Aligned) ✅
+- [x] Add paceAppraisals table to schema
+- [x] Add pace.synthesise mutation: reads all person data, generates AI appraiser comments per KPI row
+- [x] Add pace.save mutation: saves human-edited appraisal to paceAppraisals table
+- [x] Add pace.exportDocx mutation: generates filled PACE Word document
+- [x] Build PaceAppraisalWizard component in PersonProfile (4-step wizard)
+- [x] Add "Appraise" button to PersonProfile that opens the wizard
+- [x] Zero TypeScript errors across all new code

@@ -36,6 +36,13 @@
       "when": 1776933741892,
       "tag": "0004_ambitious_marten_broadcloak",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1778149126233,
+      "tag": "0005_spotty_thundra",
+      "breakpoints": true
     }
   ]
 }

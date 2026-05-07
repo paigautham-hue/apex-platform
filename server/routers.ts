@@ -7,6 +7,7 @@ import { publicProcedure, router, protectedProcedure } from "./_core/trpc";
 import { processAskQuery, getSuggestedQueries } from "./ai-ask";
 import { accessControlRouter } from "./routers/accessControl";
 import { preferencesRouter } from "./routers/preferences";
+import { appraisalRouter } from "./routers/appraisal";
 import { scopeRouter } from "./routers/scope";
 import { voiceRouter } from "./routers/voice";
 import { deliberationRouter } from "./routers/deliberation";
@@ -218,6 +219,33 @@ const personRouter = router({
         .where(eq(roles.id, role.reportsToRoleId))
         .limit(1);
       return result.length > 0 ? { ...result[0].persons, currentRole: result[0].roles } : null;
+    }),
+  /** Update role mandate fields (purpose, responsibilities, success metrics) */
+  updateRoleMandate: protectedProcedure
+    .input(z.object({
+      roleId: z.number(),
+      tenantId: z.number(),
+      rolePurpose: z.string().optional(),
+      keyResponsibilities: z.array(z.string()).optional(),
+      successMetrics: z.array(z.string()).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const caller = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, input.tenantId);
+      if (!caller) throw new TRPCError({ code: "FORBIDDEN" });
+      const database = await db.getDb();
+      if (!database) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const { roles: rolesTable } = await import("../drizzle/schema");
+      const { eq, and } = await import("drizzle-orm");
+      await database
+        .update(rolesTable)
+        .set({
+          rolePurpose: input.rolePurpose ?? null,
+          keyResponsibilities: input.keyResponsibilities ?? null,
+          successMetrics: input.successMetrics ?? null,
+          updatedAt: new Date(),
+        })
+        .where(and(eq(rolesTable.id, input.roleId), eq(rolesTable.tenantId, input.tenantId)));
+      return { success: true };
     }),
 });
 // ============================================================================
@@ -1514,6 +1542,7 @@ export const appRouter = router({
   // Access control + preferences
   accessControl: accessControlRouter,
   preferences: preferencesRouter,
+  appraisal: appraisalRouter,
 
   // Feature routers
   tenant: tenantRouter,
