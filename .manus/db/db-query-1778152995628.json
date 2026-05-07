@@ -1,0 +1,20 @@
+{
+  "query": "SELECT id, personId, fileName, fiscalYear, uploadedAt, JSON_LENGTH(extractedData) as dataLen, JSON_EXTRACT(extractedData, '$.kpiRows') as kpiRows, JSON_EXTRACT(extractedData, '$.header') as header FROM selfAppraisals ORDER BY uploadedAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4PQbAAV1fA3eoWB.b2f8b0864d78 --database Y4muBuhFUHmxTsLMdqkkDW --execute SELECT id, personId, fileName, fiscalYear, uploadedAt, JSON_LENGTH(extractedData) as dataLen, JSON_EXTRACT(extractedData, '$.kpiRows') as kpiRows, JSON_EXTRACT(extractedData, '$.header') as header FROM selfAppraisals ORDER BY uploadedAt DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "1",
+      "personId": "30017",
+      "fileName": "PACE-FY25-26- CXO Template.docx",
+      "fiscalYear": "FY 2025-26",
+      "uploadedAt": "2026-05-07 10:45:42",
+      "dataLen": "4",
+      "kpiRows": "NULL",
+      "header": "{\"fiscalYear\": \"FY 2025-26\"}"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tpersonId\tfileName\tfiscalYear\tuploadedAt\tdataLen\tkpiRows\theader\n1\t30017\tPACE-FY25-26- CXO Template.docx\tFY 2025-26\t2026-05-07 10:45:42\t4\tNULL\t{\"fiscalYear\": \"FY 2025-26\"}\n",
+  "stderr": "",
+  "execution_time_ms": 1636
+}

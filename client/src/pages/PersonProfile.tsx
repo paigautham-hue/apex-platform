@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -153,7 +153,7 @@ function SelfAppraisalCard({ personId, tenantId }: { personId: number; tenantId:
                           {(a.extractedData as any).kpiRows.map((row: any, i: number) => (
                             <div key={i} className="bg-background rounded p-2">
                               <p className="font-medium">{row.goalName || row.kpiName || `KPI ${i + 1}`}</p>
-                              {row.selfAppraisal && <p className="text-muted-foreground mt-0.5">Self: {row.selfAppraisal}</p>}
+                              {(row.selfAppraisal || row.employeeSelfAppraisal) && <p className="text-muted-foreground mt-0.5">Self: {(row.selfAppraisal || row.employeeSelfAppraisal)}</p>}
                             </div>
                           ))}
                         </div>
@@ -482,13 +482,35 @@ function PaceAppraisalWizard({ personId, personName, tenantId, onClose }: {
   const [quadrant, setQuadrant] = useState("");
   const [fitDetermination, setFitDetermination] = useState("");
 
+  const utils = trpc.useUtils();
   const { data: selfAppraisalList } = trpc.appraisal.selfAppraisal.list.useQuery({ personId });
-
   const { data: context, isLoading: contextLoading } = trpc.appraisal.pace.getContext.useQuery(
     { personId, selfAppraisalId: selectedAppraisalId },
     { enabled: step >= 1 }
   );
-
+  // Auto-reparse: if context loaded but kpiRows is null and a self-appraisal exists, trigger reparse
+  const [reparseTriggered, setReparseTriggered] = useState(false);
+  const reparseMutation = trpc.appraisal.selfAppraisal.reparse.useMutation({
+    onSuccess: () => {
+      utils.appraisal.pace.getContext.invalidate({ personId });
+      utils.appraisal.selfAppraisal.list.invalidate({ personId });
+      setReparseTriggered(false);
+    },
+    onError: () => setReparseTriggered(false),
+  });
+  useEffect(() => {
+    if (!context || reparseTriggered) return;
+    const saData = context.selfAppraisalData as any;
+    // If there's a self-appraisal but no kpiRows, auto-reparse
+    if (saData && !saData.kpiRows) {
+      // Find the self-appraisal id to reparse
+      const saId = selectedAppraisalId ?? selfAppraisalList?.[0]?.id;
+      if (saId) {
+        setReparseTriggered(true);
+        reparseMutation.mutate({ id: saId });
+      }
+    }
+  }, [context, selectedAppraisalId, selfAppraisalList, reparseTriggered]);
   const synthesiseMutation = trpc.appraisal.pace.synthesise.useMutation({
     onSuccess: (data) => {
       setAppraisalResult(data);
@@ -670,8 +692,8 @@ function PaceAppraisalWizard({ personId, personName, tenantId, onClose }: {
                         {kpiRows.map((row: any, i: number) => (
                           <div key={i} className="border rounded p-2 text-xs space-y-1">
                             <p className="font-semibold text-sm">{row.goalName || row.kpiName || `KPI ${i + 1}`}</p>
-                            {row.selfAppraisal && (
-                              <p className="text-muted-foreground">{row.selfAppraisal}</p>
+                            {(row.selfAppraisal || row.employeeSelfAppraisal) && (
+                              <p className="text-muted-foreground">{(row.selfAppraisal || row.employeeSelfAppraisal)}</p>
                             )}
                             {row.selfRating && (
                               <Badge variant="secondary" className="text-xs">{row.selfRating}</Badge>
@@ -679,8 +701,15 @@ function PaceAppraisalWizard({ personId, personName, tenantId, onClose }: {
                           </div>
                         ))}
                       </div>
+                    ) : reparseMutation.isPending || reparseTriggered ? (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                        <span>Extracting KPI rows from document…</span>
+                      </div>
+                    ) : context?.selfAppraisalData ? (
+                      <p className="text-muted-foreground italic text-xs">Document uploaded but no structured KPI rows found. You can still proceed to enter your assessment manually.</p>
                     ) : (
-                      <p className="text-muted-foreground italic text-xs">No self-appraisal uploaded or no KPI rows extracted.</p>
+                      <p className="text-muted-foreground italic text-xs">No self-appraisal uploaded.</p>
                     )}
                   </CardContent>
                 </Card>
@@ -772,10 +801,10 @@ function PaceAppraisalWizard({ personId, personName, tenantId, onClose }: {
                   <Card key={i}>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-semibold">{kpi.goalName}</CardTitle>
-                      {selfRow?.selfAppraisal && (
+                      {(selfRow?.selfAppraisal || selfRow?.employeeSelfAppraisal) && (
                         <div className="mt-1 p-2 bg-muted/50 rounded text-xs text-muted-foreground">
                           <span className="font-medium text-foreground">Employee's self-assessment: </span>
-                          {selfRow.selfAppraisal}
+                          {(selfRow.selfAppraisal || selfRow.employeeSelfAppraisal)}
                           {selfRow.selfRating && (
                             <Badge variant="secondary" className="ml-2 text-xs">{selfRow.selfRating}</Badge>
                           )}
@@ -931,11 +960,11 @@ function PaceAppraisalWizard({ personId, personName, tenantId, onClose }: {
                     </div>
                   </div>
                   {/* Employee self-assessment for reference */}
-                  {row.selfAppraisal && (
+                  {(row.selfAppraisal || row.employeeSelfAppraisal) && (
                     <div className="mt-3 pt-3 border-t">
                       <p className="text-xs text-muted-foreground">
                         <span className="font-medium">Employee's self-assessment: </span>
-                        {row.selfAppraisal}
+                        {(row.selfAppraisal || row.employeeSelfAppraisal)}
                       </p>
                     </div>
                   )}

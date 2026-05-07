@@ -90,6 +90,54 @@ const selfAppraisalRouter = router({
       ));
       return { success: true };
     }),
+
+  /**
+   * Re-parse an existing self-appraisal document to re-extract KPI rows.
+   * Useful when the parser is improved after the initial upload.
+   */
+  reparse: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const tenantId = 1;
+      const caller = await db.getPersonByUserIdOrEmail(ctx.user.id, ctx.user.email ?? undefined, tenantId);
+      if (!caller) throw new TRPCError({ code: "FORBIDDEN" });
+
+      const database = await db.getDb();
+      if (!database) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+
+      const [sa] = await database.select().from(selfAppraisals).where(and(
+        eq(selfAppraisals.id, input.id),
+        eq(selfAppraisals.tenantId, caller.tenantId)
+      ));
+      if (!sa) throw new TRPCError({ code: "NOT_FOUND" });
+
+      // Download the file from S3 and re-parse
+      const response = await fetch(sa.fileUrl);
+      if (!response.ok) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not fetch file from storage" });
+      const arrayBuffer = await response.arrayBuffer();
+      const fileBuffer = Buffer.from(arrayBuffer);
+
+      let extractedData = sa.extractedData as any;
+      try {
+        const reparsed = await parsePaceDocument(fileBuffer);
+        // Merge: keep existing header/overall comments, update kpiRows
+        extractedData = {
+          ...(sa.extractedData as any ?? {}),
+          ...reparsed,
+          // Preserve rawText from reparsed
+          rawText: reparsed.rawText,
+        };
+      } catch (e) {
+        console.warn("Re-parse failed:", e);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Re-parsing failed" });
+      }
+
+      await database.update(selfAppraisals).set({
+        extractedData,
+      }).where(eq(selfAppraisals.id, input.id));
+
+      return { success: true, extractedData };
+    }),
 });
 
 // ─── JD Document Upload ───────────────────────────────────────────────────────
