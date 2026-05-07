@@ -10,12 +10,13 @@ import {
   Building2, Users, ChevronRight, Pencil, Check, X,
   FileText, Upload, Trash2, Download, Sparkles, Plus, Loader2,
   ClipboardList, ChevronDown, ChevronUp, Eye, MessageSquare,
-  ArrowRight, ArrowLeft, Star, AlertTriangle, TrendingUp, Zap
+  ArrowRight, ArrowLeft, Star, AlertTriangle, TrendingUp, Zap, GitCompare
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import AIDeliberationPanel from "@/components/AIDeliberationPanel";
 import { VoiceInput } from "@/components/VoiceInput";
+import AppraisalCompareModal from "@/components/AppraisalCompareModal";
 
 // ─── Self-Appraisal Upload Card ───────────────────────────────────────────────
 function SelfAppraisalCard({ personId, tenantId }: { personId: number; tenantId: number }) {
@@ -1224,6 +1225,7 @@ export default function PersonProfile({ personId }: { personId: number }) {
   const [selectedReportsTo, setSelectedReportsTo] = useState<string>("");
    const [showAppraisalWizard, setShowAppraisalWizard] = useState(false);
   const [expandedAppraisalId, setExpandedAppraisalId] = useState<number | null>(null);
+  const [showCompareModal, setShowCompareModal] = useState(false);
   const { data: person, isLoading } = trpc.person.getById.useQuery({ personId, tenantId: 1 });
   const { data: pastAppraisals } = trpc.appraisal.pace.list.useQuery({ personId });
   const { data: observations } = trpc.observation.getByPerson.useQuery({ personId, tenantId: 1 });
@@ -1461,10 +1463,23 @@ export default function PersonProfile({ personId }: { personId: number }) {
         {pastAppraisals && pastAppraisals.length > 0 && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardList className="h-5 w-5 text-accent" />
-                Appraisal History ({pastAppraisals.length})
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <ClipboardList className="h-5 w-5 text-accent" />
+                  Appraisal History ({pastAppraisals.length})
+                </CardTitle>
+                {pastAppraisals.length >= 2 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-xs"
+                    onClick={() => setShowCompareModal(true)}
+                  >
+                    <GitCompare className="h-3.5 w-3.5" />
+                    Compare Years
+                  </Button>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-2">
               {pastAppraisals.map((a) => {
@@ -1569,6 +1584,16 @@ export default function PersonProfile({ personId }: { personId: number }) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Appraisal Comparison Modal */}
+      {showCompareModal && pastAppraisals && pastAppraisals.length >= 2 && (
+        <AppraisalCompareModal
+          open={showCompareModal}
+          onClose={() => setShowCompareModal(false)}
+          personName={person?.name ?? ""}
+          appraisals={pastAppraisals}
+        />
+      )}
     </>
   );
 }

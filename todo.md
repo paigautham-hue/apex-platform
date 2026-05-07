@@ -788,3 +788,10 @@
 - [x] Frontend: Appraisal History accordion/tab on PersonProfile (past appraisals list)
 - [x] Frontend: /appraisals bulk status page — all direct reports with status badges and Start Appraisal button
 - [x] Add /appraisals route to App.tsx and sidebar navigation
+
+## Feature: Appraisal Comparison View ✅
+- [x] Build AppraisalCompareModal component (side-by-side two fiscal years)
+- [x] Compare quadrant, fit determination, KPI scores, appraiser comments
+- [x] Add quadrant movement arrow indicator (e.g. Star → High Potential)
+- [x] Add "Compare Years" button to Appraisal History section on PersonProfile
+- [x] Wire year selectors (left/right dropdowns) to pick any two past appraisals
