@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,11 +9,13 @@ import { Input } from "@/components/ui/input";
 import {
   Building2, Users, ChevronRight, Pencil, Check, X,
   FileText, Upload, Trash2, Download, Sparkles, Plus, Loader2,
-  ClipboardList, ChevronDown, ChevronUp
+  ClipboardList, ChevronDown, ChevronUp, Eye, MessageSquare,
+  ArrowRight, ArrowLeft, Star, AlertTriangle, TrendingUp, Zap
 } from "lucide-react";
 import { useLocation } from "wouter";
 import { toast } from "sonner";
 import AIDeliberationPanel from "@/components/AIDeliberationPanel";
+import { VoiceInput } from "@/components/VoiceInput";
 
 // ─── Self-Appraisal Upload Card ───────────────────────────────────────────────
 function SelfAppraisalCard({ personId, tenantId }: { personId: number; tenantId: number }) {
@@ -181,6 +183,10 @@ function SelfAppraisalCard({ personId, tenantId }: { personId: number; tenantId:
 function RoleMandateCard({ personId, tenantId, role }: { personId: number; tenantId: number; role: any }) {
   const [editing, setEditing] = useState(false);
   const [purpose, setPurpose] = useState(role?.rolePurpose || "");
+  const jdFileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingJd, setUploadingJd] = useState(false);
+  const [jdUploaded, setJdUploaded] = useState<{ url: string; textLength: number } | null>(null);
+
   const parseJsonArray = (val: unknown): string[] => {
     if (!val) return [];
     if (Array.isArray(val)) return val as string[];
@@ -201,6 +207,35 @@ function RoleMandateCard({ personId, tenantId, role }: { personId: number; tenan
     onError: (e) => toast.error(e.message),
   });
 
+  const jdUploadMutation = trpc.appraisal.jdDocument.upload.useMutation({
+    onSuccess: (data) => {
+      setJdUploaded({ url: data.fileUrl, textLength: data.jdTextLength });
+      toast.success(`JD uploaded — ${data.jdTextLength.toLocaleString()} characters extracted`);
+      setUploadingJd(false);
+      utils.person.getById.invalidate({ personId, tenantId });
+    },
+    onError: (e) => {
+      toast.error("JD upload failed: " + e.message);
+      setUploadingJd(false);
+    },
+  });
+
+  const handleJdFile = (file: File) => {
+    if (file.size > 16 * 1024 * 1024) { toast.error("File must be under 16 MB"); return; }
+    setUploadingJd(true);
+    const reader = new FileReader();
+    reader.onload = (e: ProgressEvent<FileReader>) => {
+      const base64 = (e.target?.result as string).split(",")[1];
+      jdUploadMutation.mutate({
+        roleId: role.id,
+        fileBase64: base64,
+        fileName: file.name,
+        mimeType: file.type || "application/octet-stream",
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleSave = () => {
     if (!role?.id) return;
     updateMandate.mutate({
@@ -215,6 +250,8 @@ function RoleMandateCard({ personId, tenantId, role }: { personId: number; tenan
   const addResp = () => { if (newResp.trim()) { setResponsibilities([...responsibilities, newResp.trim()]); setNewResp(""); } };
   const addMetric = () => { if (newMetric.trim()) { setSuccessMetrics([...successMetrics, newMetric.trim()]); setNewMetric(""); } };
 
+  const hasJd = jdUploaded || role?.jdDocumentUrl;
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -223,33 +260,81 @@ function RoleMandateCard({ personId, tenantId, role }: { personId: number; tenan
             <ClipboardList className="h-4 w-4" />
             Role Mandate
           </CardTitle>
-          {!editing ? (
-            <Button variant="ghost" size="sm" onClick={() => setEditing(true)} className="h-8 px-2">
-              <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
-            </Button>
-          ) : (
-            <div className="flex gap-1">
-              <Button size="sm" onClick={handleSave} disabled={updateMandate.isPending} className="h-8 px-3">
-                {updateMandate.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+          <div className="flex items-center gap-2">
+            {/* JD Upload Button */}
+            {role?.id && (
+              <div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 px-3 gap-1.5 text-xs"
+                  onClick={() => jdFileInputRef.current?.click()}
+                  disabled={uploadingJd}
+                >
+                  {uploadingJd ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : hasJd ? (
+                    <Check className="h-3.5 w-3.5 text-emerald-500" />
+                  ) : (
+                    <Upload className="h-3.5 w-3.5" />
+                  )}
+                  {hasJd ? "JD Uploaded ✓" : "Upload JD"}
+                </Button>
+                <input
+                  ref={jdFileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept=".docx,.pdf,.doc"
+                  onChange={(e) => { const f = e.target.files?.[0]; if (f) handleJdFile(f); }}
+                />
+              </div>
+            )}
+            {!editing ? (
+              <Button variant="ghost" size="sm" onClick={() => setEditing(true)} className="h-8 px-2">
+                <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
               </Button>
-              <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="h-8 px-2">
-                <X className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-          )}
+            ) : (
+              <div className="flex gap-1">
+                <Button size="sm" onClick={handleSave} disabled={updateMandate.isPending} className="h-8 px-3">
+                  {updateMandate.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => setEditing(false)} className="h-8 px-2">
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            )}
+          </div>
         </div>
+        {/* JD status indicator */}
+        {(jdUploaded || role?.jdDocumentUrl) && (
+          <div className="flex items-center gap-2 mt-1">
+            <Badge variant="secondary" className="text-xs gap-1">
+              <FileText className="h-3 w-3" />
+              JD document on file
+              {jdUploaded && ` — ${jdUploaded.textLength.toLocaleString()} chars`}
+            </Badge>
+            {(jdUploaded?.url || role?.jdDocumentUrl) && (
+              <a href={jdUploaded?.url || role?.jdDocumentUrl} target="_blank" rel="noreferrer" className="text-xs text-accent hover:underline">
+                View
+              </a>
+            )}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Purpose */}
         <div>
           <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1.5">Purpose</p>
           {editing ? (
-            <Textarea
-              value={purpose}
-              onChange={(e) => setPurpose(e.target.value)}
-              placeholder="What does this role exist to do? (1–2 sentences)"
-              className="min-h-[72px] text-sm"
-            />
+            <div className="space-y-1">
+              <Textarea
+                value={purpose}
+                onChange={(e) => setPurpose(e.target.value)}
+                placeholder="What does this role exist to do? (1–2 sentences)"
+                className="min-h-[72px] text-sm"
+              />
+              <VoiceInput onTranscript={(t: string) => setPurpose((prev: string) => prev ? prev + " " + t : t)} />
+            </div>
           ) : purpose ? (
             <p className="text-sm">{purpose}</p>
           ) : (
@@ -333,247 +418,705 @@ function RoleMandateCard({ personId, tenantId, role }: { personId: number; tenan
   );
 }
 
+// ─── Step indicator ───────────────────────────────────────────────────────────
+const WIZARD_STEPS = [
+  { id: 1, label: "Context Review", icon: Eye },
+  { id: 2, label: "Your Input", icon: MessageSquare },
+  { id: 3, label: "AI Enhancement", icon: Sparkles },
+  { id: 4, label: "Side-by-Side", icon: ArrowRight },
+  { id: 5, label: "Finalise", icon: Check },
+];
+
+function WizardStepBar({ current }: { current: number }) {
+  return (
+    <div className="flex items-center gap-0 overflow-x-auto pb-1">
+      {WIZARD_STEPS.map((s, i) => {
+        const Icon = s.icon;
+        const done = current > s.id;
+        const active = current === s.id;
+        return (
+          <div key={s.id} className="flex items-center">
+            <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all ${
+              active ? "bg-accent text-accent-foreground shadow-sm" :
+              done ? "bg-accent/20 text-accent" :
+              "text-muted-foreground"
+            }`}>
+              <Icon className="h-3.5 w-3.5" />
+              {s.label}
+            </div>
+            {i < WIZARD_STEPS.length - 1 && (
+              <div className={`h-px w-4 shrink-0 ${done ? "bg-accent/40" : "bg-border"}`} />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── PACE Appraisal Wizard ────────────────────────────────────────────────────
+type WizardStep = 1 | 2 | 3 | 4 | 5;
+
+interface ChairmanKpiInput {
+  goalName: string;
+  chairmanRawInput: string;
+}
+
 function PaceAppraisalWizard({ personId, personName, tenantId, onClose }: {
   personId: number; personName: string; tenantId: number; onClose: () => void;
 }) {
-  const [step, setStep] = useState<"select" | "synthesising" | "review" | "done">("select");
+  const [step, setStep] = useState<WizardStep>(1);
   const [selectedAppraisalId, setSelectedAppraisalId] = useState<number | undefined>();
   const [fiscalYear, setFiscalYear] = useState(new Date().getFullYear().toString());
-  const [appraisalData, setAppraisalData] = useState<any>(null);
-  const [editedRows, setEditedRows] = useState<Record<number, string>>({});
-  const [overallComments, setOverallComments] = useState("");
-  const [saving, setSaving] = useState(false);
 
-  const { data: selfAppraisals } = trpc.appraisal.selfAppraisal.list.useQuery({ personId });
-  const synthesise = trpc.appraisal.pace.synthesise.useMutation({
+  // Step 2 state — Chairman's raw input
+  const [chairmanKpiInputs, setChairmanKpiInputs] = useState<ChairmanKpiInput[]>([]);
+  const [chairmanOverallView, setChairmanOverallView] = useState("");
+
+  // Step 3/4 state — AI result
+  const [appraisalResult, setAppraisalResult] = useState<any>(null);
+  const [editedKpiRows, setEditedKpiRows] = useState<Record<number, string>>({});
+  const [editedOverall, setEditedOverall] = useState("");
+
+  // Step 5 state
+  const [quadrant, setQuadrant] = useState("");
+  const [fitDetermination, setFitDetermination] = useState("");
+
+  const { data: selfAppraisalList } = trpc.appraisal.selfAppraisal.list.useQuery({ personId });
+
+  const { data: context, isLoading: contextLoading } = trpc.appraisal.pace.getContext.useQuery(
+    { personId, selfAppraisalId: selectedAppraisalId },
+    { enabled: step >= 1 }
+  );
+
+  const synthesiseMutation = trpc.appraisal.pace.synthesise.useMutation({
     onSuccess: (data) => {
-      setAppraisalData(data);
-      // Pre-fill editable fields from AI output
+      setAppraisalResult(data);
+      // Pre-fill editable rows from AI polished output
       const rows: Record<number, string> = {};
       data.paceData?.kpiRows?.forEach((row: any, i: number) => {
-        rows[i] = row.appraiserComments || "";
+        rows[i] = row.polishedAppraiserComments || row.appraiserComments || "";
       });
-      setEditedRows(rows);
-      setOverallComments(data.paceData?.appraiserOverallComments || "");
-      setStep("review");
+      setEditedKpiRows(rows);
+      setEditedOverall(data.paceData?.appraiserOverallComments || "");
+      // Pre-fill quadrant suggestions
+      if (data.quadrantSuggestion) setQuadrant(data.quadrantSuggestion);
+      if (data.fitSuggestion) setFitDetermination(data.fitSuggestion);
+      setStep(4);
     },
-    onError: (e) => { toast.error("Synthesis failed: " + e.message); setStep("select"); },
+    onError: (e) => {
+      toast.error("AI synthesis failed: " + e.message);
+      setStep(2);
+    },
   });
-  const saveAppraisal = trpc.appraisal.pace.save.useMutation({
-    onSuccess: () => { toast.success("Appraisal saved"); setStep("done"); },
+
+  const saveMutation = trpc.appraisal.pace.save.useMutation({
+    onSuccess: () => { toast.success("Appraisal saved successfully"); setStep(5); },
     onError: (e) => toast.error(e.message),
   });
 
-  const handleSynthesize = () => {
-    setStep("synthesising");
-    synthesise.mutate({ personId, selfAppraisalId: selectedAppraisalId, fiscalYear });
+  // Initialise KPI inputs when context loads and we move to step 2
+  const initKpiInputs = useCallback(() => {
+    const kpiRows = (context?.selfAppraisalData as any)?.kpiRows ?? [];
+    if (kpiRows.length > 0 && chairmanKpiInputs.length === 0) {
+      setChairmanKpiInputs(kpiRows.map((row: any) => ({
+        goalName: row.goalName || row.kpiName || "KPI",
+        chairmanRawInput: "",
+      })));
+    } else if (kpiRows.length === 0 && chairmanKpiInputs.length === 0) {
+      // No self-appraisal — create one generic input
+      setChairmanKpiInputs([{ goalName: "Overall Performance", chairmanRawInput: "" }]);
+    }
+  }, [context, chairmanKpiInputs.length]);
+
+  const handleGoToStep2 = () => {
+    initKpiInputs();
+    setStep(2);
   };
 
-  const handleSave = async () => {
-    if (!appraisalData?.id) return;
-    setSaving(true);
-    // Merge edited rows back into paceData
+  const handleRunAI = () => {
+    setStep(3);
+    synthesiseMutation.mutate({
+      personId,
+      selfAppraisalId: selectedAppraisalId,
+      fiscalYear,
+      chairmanKpiInputs,
+      chairmanOverallView,
+    });
+  };
+
+  const handleSaveFinal = () => {
+    if (!appraisalResult?.id) return;
     const updatedPaceData = {
-      ...appraisalData.paceData,
-      kpiRows: appraisalData.paceData?.kpiRows?.map((row: any, i: number) => ({
+      ...appraisalResult.paceData,
+      kpiRows: appraisalResult.paceData?.kpiRows?.map((row: any, i: number) => ({
         ...row,
-        appraiserComments: editedRows[i] ?? row.appraiserComments,
+        appraiserComments: editedKpiRows[i] ?? row.appraiserComments,
       })),
-      appraiserOverallComments: overallComments,
+      appraiserOverallComments: editedOverall,
+      quadrant,
+      fitDetermination,
     };
-    saveAppraisal.mutate({
-      id: appraisalData.id,
+    saveMutation.mutate({
+      id: appraisalResult.id,
       paceData: updatedPaceData,
+      quadrant,
+      fitDetermination,
       status: "FINAL",
     });
-    setSaving(false);
   };
+
+  const kpiRows = (context?.selfAppraisalData as any)?.kpiRows ?? [];
 
   return (
     <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-sm overflow-y-auto">
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
+      <div className="max-w-5xl mx-auto p-4 md:p-6 space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-start justify-between">
           <div>
             <h2 className="text-2xl font-bold flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-accent" />
               PACE Appraisal — {personName}
             </h2>
-            <p className="text-muted-foreground text-sm mt-0.5">AI-assisted appraisal using all available data</p>
+            <p className="text-muted-foreground text-sm mt-0.5">Human-first, AI-assisted appraisal flow</p>
           </div>
           <Button variant="ghost" onClick={onClose}><X className="h-5 w-5" /></Button>
         </div>
 
-        {/* Step: Select */}
-        {step === "select" && (
-          <Card>
-            <CardHeader><CardTitle>Configure Appraisal</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">Fiscal Year</label>
-                <Input
-                  value={fiscalYear}
-                  onChange={(e) => setFiscalYear(e.target.value)}
-                  placeholder="e.g. FY25-26"
-                  className="max-w-xs"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium mb-1.5 block">Self-Appraisal Document (optional)</label>
-                {selfAppraisals && selfAppraisals.length > 0 ? (
-                  <Select value={selectedAppraisalId?.toString() || "none"} onValueChange={(v) => setSelectedAppraisalId(v === "none" ? undefined : Number(v))}>
-                    <SelectTrigger className="max-w-sm">
-                      <SelectValue placeholder="Select self-appraisal…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">— No self-appraisal (use observations only)</SelectItem>
-                      {selfAppraisals.map((a) => (
-                        <SelectItem key={a.id} value={String(a.id)}>
-                          {a.fileName} {a.fiscalYear ? `(FY ${a.fiscalYear})` : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <p className="text-sm text-muted-foreground">No self-appraisals uploaded yet. The AI will use observations and goals only.</p>
-                )}
-              </div>
-              <div className="pt-2">
-                <Button onClick={handleSynthesize} className="gap-2">
-                  <Sparkles className="h-4 w-4" />
-                  Generate AI Appraisal
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        {/* Step bar */}
+        <WizardStepBar current={step} />
 
-        {/* Step: Synthesising */}
-        {step === "synthesising" && (
-          <Card>
-            <CardContent className="py-16 text-center space-y-4">
-              <Loader2 className="h-10 w-10 animate-spin text-accent mx-auto" />
-              <div>
-                <p className="font-semibold text-lg">Synthesising appraisal…</p>
-                <p className="text-muted-foreground text-sm mt-1">
-                  Reading observations, goals, financial data, and self-appraisal. This may take 15–30 seconds.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Step: Review */}
-        {step === "review" && appraisalData && (
+        {/* ── Step 1: Context Review ── */}
+        {step === 1 && (
           <div className="space-y-4">
-            {/* AI Signal Summary */}
-            {appraisalData.aiSignalSummary && (
-              <Card className="border-accent/30 bg-accent/5">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-accent" /> AI Signal Summary
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="text-sm space-y-2">
-                  {appraisalData.aiSignalSummary.strengths?.length > 0 && (
-                    <div>
-                      <p className="font-medium text-emerald-600 dark:text-emerald-400">Strengths</p>
-                      <ul className="list-disc list-inside text-muted-foreground space-y-0.5">
-                        {appraisalData.aiSignalSummary.strengths.map((s: string, i: number) => <li key={i}>{s}</li>)}
-                      </ul>
-                    </div>
-                  )}
-                  {appraisalData.aiSignalSummary.concerns?.length > 0 && (
-                    <div>
-                      <p className="font-medium text-amber-600 dark:text-amber-400">Areas for Development</p>
-                      <ul className="list-disc list-inside text-muted-foreground space-y-0.5">
-                        {appraisalData.aiSignalSummary.concerns.map((c: string, i: number) => <li key={i}>{c}</li>)}
-                      </ul>
-                    </div>
-                  )}
-                  {appraisalData.aiSignalSummary.overallNarrative && (
-                    <p className="text-muted-foreground italic">{appraisalData.aiSignalSummary.overallNarrative}</p>
-                  )}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* KPI Rows */}
-            {appraisalData.paceData?.kpiRows?.length > 0 && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">KPI Appraisal — Edit Appraiser Comments</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {appraisalData.paceData.kpiRows.map((row: any, i: number) => (
-                    <div key={i} className="border rounded-lg p-3 space-y-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="font-medium text-sm">{row.goalName || row.kpiName || `KPI ${i + 1}`}</p>
-                          {row.weightage && <Badge variant="secondary" className="text-xs mt-0.5">{row.weightage}% weight</Badge>}
-                        </div>
-                      </div>
-                      {row.selfAppraisal && (
-                        <div className="bg-muted/40 rounded p-2 text-xs">
-                          <span className="font-medium text-muted-foreground">Self: </span>
-                          {row.selfAppraisal}
-                        </div>
-                      )}
-                      <div>
-                        <label className="text-xs font-medium text-muted-foreground mb-1 block">Your Appraiser Comment</label>
-                        <Textarea
-                          value={editedRows[i] || ""}
-                          onChange={(e) => setEditedRows({ ...editedRows, [i]: e.target.value })}
-                          placeholder="Enter your assessment of this KPI…"
-                          className="min-h-[72px] text-sm"
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Overall Comments */}
             <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Overall Appraiser Comments</CardTitle>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <Eye className="h-4 w-4 text-accent" />
+                    Step 1 — Review Context Before Forming Your View
+                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium">Fiscal Year</label>
+                    <Input
+                      value={fiscalYear}
+                      onChange={(e) => setFiscalYear(e.target.value)}
+                      placeholder="e.g. FY25-26"
+                      className="w-28 h-8 text-sm"
+                    />
+                    {selfAppraisalList && selfAppraisalList.length > 0 && (
+                      <Select value={selectedAppraisalId?.toString() || "none"} onValueChange={(v) => setSelectedAppraisalId(v === "none" ? undefined : Number(v))}>
+                        <SelectTrigger className="w-52 h-8 text-sm">
+                          <SelectValue placeholder="Select self-appraisal…" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">— Latest self-appraisal</SelectItem>
+                          {selfAppraisalList.map((a) => (
+                            <SelectItem key={a.id} value={String(a.id)}>
+                              {a.fileName} {a.fiscalYear ? `(FY ${a.fiscalYear})` : ""}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                </div>
               </CardHeader>
-              <CardContent>
-                <Textarea
-                  value={overallComments}
-                  onChange={(e) => setOverallComments(e.target.value)}
-                  placeholder="Your overall assessment of this person's performance and potential…"
-                  className="min-h-[120px] text-sm"
-                />
-              </CardContent>
             </Card>
 
-            <div className="flex gap-3 justify-end">
-              <Button variant="outline" onClick={() => setStep("select")}>← Regenerate</Button>
-              <Button onClick={handleSave} disabled={saving} className="gap-2">
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
-                Finalise Appraisal
+            {contextLoading ? (
+              <Card><CardContent className="py-12 text-center"><Loader2 className="h-8 w-8 animate-spin text-accent mx-auto" /></CardContent></Card>
+            ) : (
+              <div className="grid md:grid-cols-2 gap-4">
+                {/* JD / Role Mandate */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <ClipboardList className="h-4 w-4 text-accent" /> Job Description
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="text-sm space-y-2">
+                    {context?.jdDocumentText ? (
+                      <div className="max-h-48 overflow-y-auto text-muted-foreground whitespace-pre-wrap text-xs leading-relaxed">
+                        {context.jdDocumentText.slice(0, 1500)}{context.jdDocumentText.length > 1500 ? "…" : ""}
+                      </div>
+                    ) : context?.rolePurpose ? (
+                      <div className="space-y-2">
+                        <p className="font-medium">{context.rolePurpose}</p>
+                        {(context.keyResponsibilities as string[])?.length > 0 && (
+                          <ul className="space-y-1 text-muted-foreground">
+                            {(context.keyResponsibilities as string[]).map((r, i) => (
+                              <li key={i} className="flex gap-1.5"><span className="text-accent">•</span>{r}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground italic text-xs">No JD uploaded. Upload a JD in the Role Mandate section for richer AI context.</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Self-Appraisal KPI Summary */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-accent" /> Self-Appraisal
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {kpiRows.length > 0 ? (
+                      <div className="space-y-2 max-h-48 overflow-y-auto">
+                        {kpiRows.map((row: any, i: number) => (
+                          <div key={i} className="border rounded p-2 text-xs space-y-1">
+                            <p className="font-semibold text-sm">{row.goalName || row.kpiName || `KPI ${i + 1}`}</p>
+                            {row.selfAppraisal && (
+                              <p className="text-muted-foreground">{row.selfAppraisal}</p>
+                            )}
+                            {row.selfRating && (
+                              <Badge variant="secondary" className="text-xs">{row.selfRating}</Badge>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground italic text-xs">No self-appraisal uploaded or no KPI rows extracted.</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Goals */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <TrendingUp className="h-4 w-4 text-accent" /> Goals ({context?.goals?.length ?? 0})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {context?.goals && context.goals.length > 0 ? (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {context.goals.map((g: any) => (
+                          <div key={g.id} className="flex items-center gap-2 text-xs">
+                            <Badge variant={g.status === "COMPLETED" ? "default" : "secondary"} className="text-xs shrink-0">
+                              {g.status}
+                            </Badge>
+                            <span className="truncate">{g.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground italic text-xs">No goals recorded.</p>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Observations */}
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2">
+                      <Zap className="h-4 w-4 text-accent" /> Observations ({context?.observations?.length ?? 0})
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {context?.observations && context.observations.length > 0 ? (
+                      <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                        {context.observations.slice(0, 8).map((obs: any) => (
+                          <div key={obs.id} className="border-l-2 border-accent/40 pl-2 text-xs">
+                            <Badge
+                              variant={obs.direction === "POSITIVE" ? "default" : obs.direction === "NEEDS_IMPROVEMENT" ? "destructive" : "secondary"}
+                              className="text-xs mb-0.5"
+                            >
+                              {obs.direction?.replace(/_/g, " ")}
+                            </Badge>
+                            <p className="text-muted-foreground line-clamp-2">{obs.text}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground italic text-xs">No observations recorded.</p>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            <div className="flex justify-end">
+              <Button onClick={handleGoToStep2} className="gap-2" disabled={contextLoading}>
+                I've reviewed the context — proceed to my input
+                <ArrowRight className="h-4 w-4" />
               </Button>
             </div>
           </div>
         )}
 
-        {/* Step: Done */}
-        {step === "done" && (
+        {/* ── Step 2: Chairman's Raw Input ── */}
+        {step === 2 && (
+          <div className="space-y-4">
+            <Card className="border-accent/30 bg-accent/5">
+              <CardContent className="py-3 px-4">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <MessageSquare className="h-4 w-4 text-accent" />
+                  Step 2 — Your Raw Assessment (AI will polish your words, not replace them)
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Write your honest view for each KPI in plain language. The AI will enhance the expression while preserving your judgment.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* KPI Inputs */}
+            <div className="space-y-4">
+              {chairmanKpiInputs.map((kpi, i) => {
+                const selfRow = kpiRows[i];
+                return (
+                  <Card key={i}>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm font-semibold">{kpi.goalName}</CardTitle>
+                      {selfRow?.selfAppraisal && (
+                        <div className="mt-1 p-2 bg-muted/50 rounded text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">Employee's self-assessment: </span>
+                          {selfRow.selfAppraisal}
+                          {selfRow.selfRating && (
+                            <Badge variant="secondary" className="ml-2 text-xs">{selfRow.selfRating}</Badge>
+                          )}
+                        </div>
+                      )}
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                        Your view on this KPI
+                      </label>
+                      <Textarea
+                        value={kpi.chairmanRawInput}
+                        onChange={(e) => {
+                          const updated = [...chairmanKpiInputs];
+                          updated[i] = { ...updated[i], chairmanRawInput: e.target.value };
+                          setChairmanKpiInputs(updated);
+                        }}
+                        placeholder="Write your honest assessment in plain language — e.g. 'Good delivery on targets but needs to improve communication with the board. Showed initiative on the acquisition.'"
+                        className="min-h-[80px] text-sm"
+                      />
+                      <VoiceInput
+                        onTranscript={(t: string) => {
+                          const updated = [...chairmanKpiInputs];
+                          updated[i] = { ...updated[i], chairmanRawInput: updated[i].chairmanRawInput ? updated[i].chairmanRawInput + " " + t : t };
+                          setChairmanKpiInputs(updated);
+                        }}
+                      />
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            {/* Overall View */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Overall View of {personName}</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Your overall narrative
+                </label>
+                <Textarea
+                  value={chairmanOverallView}
+                  onChange={(e) => setChairmanOverallView(e.target.value)}
+                  placeholder="Summarise your overall assessment — performance, potential, concerns, and what you expect from them in the next year."
+                  className="min-h-[100px] text-sm"
+                />
+                <VoiceInput onTranscript={(t: string) => setChairmanOverallView((prev: string) => prev ? prev + " " + t : t)} />
+              </CardContent>
+            </Card>
+
+            <div className="flex items-center justify-between">
+              <Button variant="outline" onClick={() => setStep(1)} className="gap-2">
+                <ArrowLeft className="h-4 w-4" /> Back to Context
+              </Button>
+              <Button
+                onClick={handleRunAI}
+                className="gap-2"
+                disabled={!chairmanOverallView.trim() && chairmanKpiInputs.every(k => !k.chairmanRawInput.trim())}
+              >
+                <Sparkles className="h-4 w-4" />
+                Let AI polish my assessment
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 3: AI Enhancement Loading ── */}
+        {step === 3 && (
           <Card>
-            <CardContent className="py-12 text-center space-y-4">
-              <div className="h-16 w-16 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto">
-                <Check className="h-8 w-8 text-emerald-500" />
+            <CardContent className="py-20 text-center space-y-5">
+              <div className="relative mx-auto w-16 h-16">
+                <div className="absolute inset-0 rounded-full border-4 border-accent/20 animate-ping" />
+                <div className="relative h-16 w-16 rounded-full bg-accent/10 flex items-center justify-center">
+                  <Sparkles className="h-8 w-8 text-accent animate-pulse" />
+                </div>
               </div>
               <div>
-                <p className="font-semibold text-xl">Appraisal Finalised</p>
-                <p className="text-muted-foreground text-sm mt-1">
-                  The PACE appraisal for {personName} has been saved.
+                <p className="font-semibold text-xl">AI is polishing your assessment…</p>
+                <p className="text-muted-foreground text-sm mt-2 max-w-md mx-auto">
+                  Reading the JD, self-appraisal, goals, and observations to enhance your words while preserving your judgment.
                 </p>
               </div>
-              <Button onClick={onClose}>Close</Button>
+              <p className="text-xs text-muted-foreground">This typically takes 15–30 seconds</p>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* ── Step 4: Side-by-Side Review ── */}
+        {step === 4 && appraisalResult && (
+          <div className="space-y-4">
+            <Card className="border-accent/30 bg-accent/5">
+              <CardContent className="py-3 px-4">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Eye className="h-4 w-4 text-accent" />
+                  Step 4 — Review & Edit: Your Words vs AI-Polished
+                </p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  The right column shows AI-polished text. Edit it freely — your final version is what gets saved.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* AI Synthesis Notes */}
+            {appraisalResult.aiSynthesisSummary && (
+              <Card className="border-accent/20">
+                <CardContent className="py-3 px-4">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-1">AI Synthesis Notes</p>
+                  <p className="text-sm text-muted-foreground italic">{appraisalResult.aiSynthesisSummary}</p>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* KPI Side-by-Side */}
+            {appraisalResult.paceData?.kpiRows?.map((row: any, i: number) => (
+              <Card key={i}>
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-semibold">{row.goalName || `KPI ${i + 1}`}</CardTitle>
+                    <Badge
+                      variant={row.source === "AI_SUGGESTED" ? "secondary" : "default"}
+                      className="text-xs"
+                    >
+                      {row.source === "AI_SUGGESTED" ? "AI Suggested" : "Chairman Polished"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {/* Left: Chairman's raw words */}
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Your Words</p>
+                      <div className="p-3 bg-muted/40 rounded-lg text-sm text-muted-foreground min-h-[80px]">
+                        {row.chairmanRaw || <span className="italic">No input provided</span>}
+                      </div>
+                    </div>
+                    {/* Right: AI polished (editable) */}
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-accent uppercase tracking-wide">AI-Polished (edit freely)</p>
+                      <Textarea
+                        value={editedKpiRows[i] ?? row.polishedAppraiserComments ?? ""}
+                        onChange={(e) => setEditedKpiRows({ ...editedKpiRows, [i]: e.target.value })}
+                        className="min-h-[80px] text-sm border-accent/30 focus:border-accent"
+                      />
+                      <VoiceInput
+                        onTranscript={(t: string) => setEditedKpiRows((prev: Record<number, string>) => ({
+                          ...prev,
+                          [i]: (prev[i] ?? "") + " " + t
+                        }))}
+                      />
+                    </div>
+                  </div>
+                  {/* Employee self-assessment for reference */}
+                  {row.selfAppraisal && (
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-xs text-muted-foreground">
+                        <span className="font-medium">Employee's self-assessment: </span>
+                        {row.selfAppraisal}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+
+            {/* Overall Comments Side-by-Side */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold">Overall Narrative</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Your Words</p>
+                    <div className="p-3 bg-muted/40 rounded-lg text-sm text-muted-foreground min-h-[100px]">
+                      {appraisalResult.paceData?.chairmanOverallRaw || <span className="italic">No input provided</span>}
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-accent uppercase tracking-wide">AI-Polished (edit freely)</p>
+                    <Textarea
+                      value={editedOverall}
+                      onChange={(e) => setEditedOverall(e.target.value)}
+                      className="min-h-[100px] text-sm border-accent/30 focus:border-accent"
+                    />
+                    <VoiceInput onTranscript={(t: string) => setEditedOverall((prev: string) => prev ? prev + " " + t : t)} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex items-center justify-between">
+              <Button variant="outline" onClick={() => setStep(2)} className="gap-2">
+                <ArrowLeft className="h-4 w-4" /> Back to My Input
+              </Button>
+              <Button onClick={() => setStep(5)} className="gap-2">
+                Proceed to Finalise
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 5: Finalise & Export ── */}
+        {step === 5 && !saveMutation.isSuccess && (
+          <div className="space-y-4">
+            <Card className="border-accent/30 bg-accent/5">
+              <CardContent className="py-3 px-4">
+                <p className="text-sm font-medium flex items-center gap-2">
+                  <Star className="h-4 w-4 text-accent" />
+                  Step 5 — Finalise: Set Quadrant & Save
+                </p>
+              </CardContent>
+            </Card>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              {/* Quadrant */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Performance Quadrant</CardTitle>
+                  {appraisalResult?.quadrantSuggestion && (
+                    <p className="text-xs text-muted-foreground">AI suggests: <span className="font-medium text-accent">{appraisalResult.quadrantSuggestion.replace(/_/g, " ")}</span></p>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <Select value={quadrant} onValueChange={setQuadrant}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select quadrant…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="STAR">
+                        <div className="flex items-center gap-2">
+                          <Star className="h-3.5 w-3.5 text-yellow-500" /> Star
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="HIGH_POTENTIAL">
+                        <div className="flex items-center gap-2">
+                          <TrendingUp className="h-3.5 w-3.5 text-blue-500" /> High Potential
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="NEEDS_DEVELOPMENT">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-500" /> Needs Development
+                        </div>
+                      </SelectItem>
+                      <SelectItem value="BRILLIANT_JERK">
+                        <div className="flex items-center gap-2">
+                          <Zap className="h-3.5 w-3.5 text-red-500" /> Brilliant Jerk
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+
+              {/* Fit Determination */}
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Fit Determination</CardTitle>
+                  {appraisalResult?.fitSuggestion && (
+                    <p className="text-xs text-muted-foreground">AI suggests: <span className="font-medium text-accent">{appraisalResult.fitSuggestion.replace(/_/g, " ")}</span></p>
+                  )}
+                </CardHeader>
+                <CardContent>
+                  <Select value={fitDetermination} onValueChange={setFitDetermination}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select fit…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="STRONG_FIT">Strong Fit</SelectItem>
+                      <SelectItem value="DEVELOPING">Developing</SelectItem>
+                      <SelectItem value="CONCERNS">Concerns</SelectItem>
+                      <SelectItem value="NOT_FIT">Not Fit</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Summary of what will be saved */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">Appraisal Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="text-sm space-y-2">
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div><span className="text-muted-foreground">Person: </span><span className="font-medium">{personName}</span></div>
+                  <div><span className="text-muted-foreground">Fiscal Year: </span><span className="font-medium">{fiscalYear}</span></div>
+                  <div><span className="text-muted-foreground">KPI Rows: </span><span className="font-medium">{appraisalResult?.paceData?.kpiRows?.length ?? 0}</span></div>
+                  <div><span className="text-muted-foreground">Status: </span><Badge variant="default" className="text-xs">FINAL</Badge></div>
+                </div>
+                {editedOverall && (
+                  <div className="pt-2 border-t">
+                    <p className="text-xs text-muted-foreground mb-1">Overall narrative preview:</p>
+                    <p className="text-sm line-clamp-3">{editedOverall}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <div className="flex items-center justify-between">
+              <Button variant="outline" onClick={() => setStep(4)} className="gap-2">
+                <ArrowLeft className="h-4 w-4" /> Back to Review
+              </Button>
+              <Button
+                onClick={handleSaveFinal}
+                disabled={saveMutation.isPending || !quadrant}
+                className="gap-2"
+              >
+                {saveMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="h-4 w-4" />
+                )}
+                Finalise & Save Appraisal
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 5: Done ── */}
+        {step === 5 && saveMutation.isSuccess && (
+          <Card>
+            <CardContent className="py-16 text-center space-y-5">
+              <div className="h-20 w-20 rounded-full bg-emerald-500/20 flex items-center justify-center mx-auto">
+                <Check className="h-10 w-10 text-emerald-500" />
+              </div>
+              <div>
+                <p className="font-bold text-2xl">Appraisal Finalised</p>
+                <p className="text-muted-foreground text-sm mt-2 max-w-sm mx-auto">
+                  The PACE appraisal for <strong>{personName}</strong> has been saved with your final assessment.
+                </p>
+              </div>
+              {quadrant && (
+                <Badge variant="default" className="text-sm px-4 py-1">
+                  {quadrant.replace(/_/g, " ")}
+                </Badge>
+              )}
+              <Button onClick={onClose} size="lg">Close</Button>
             </CardContent>
           </Card>
         )}

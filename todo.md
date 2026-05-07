@@ -769,3 +769,14 @@
 - [x] Build PaceAppraisalWizard component in PersonProfile (4-step wizard)
 - [x] Add "Appraise" button to PersonProfile that opens the wizard
 - [x] Zero TypeScript errors across all new code
+
+## Redesign: PACE Appraisal Wizard (Human-First) ✅
+- [x] Backend: add jdDocument upload mutation (upload JD Word/PDF to S3, extract text)
+- [x] Backend: update pace.synthesise to accept chairmanRawInput per KPI + overall, use JD+goals+observations as context
+- [x] Backend: update pace.synthesise prompt to polish Chairman's words, not replace them
+- [x] Frontend: add JD Document upload button to Role Mandate card on PersonProfile
+- [x] Frontend: Step 1 - Context Review (JD, self-appraisal, goals, observations, financial KPIs)
+- [x] Frontend: Step 2 - Chairman Input (per-KPI raw judgment + overall view, voice input)
+- [x] Frontend: Step 3 - AI Enhancement loading state (AI polishes Chairman's input)
+- [x] Frontend: Step 4 - Side-by-side review (Chairman raw vs AI-polished, accept/reject/edit per field)
+- [x] Frontend: Step 5 - Finalise & Export (rating, quadrant, Word export)

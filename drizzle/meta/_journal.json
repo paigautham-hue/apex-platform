@@ -43,6 +43,13 @@
       "when": 1778149126233,
       "tag": "0005_spotty_thundra",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1778151847815,
+      "tag": "0006_glorious_scarecrow",
+      "breakpoints": true
     }
   ]
 }

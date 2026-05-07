@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `roles` ADD `jdDocumentUrl` text; ALTER TABLE `roles` ADD `jdDocumentText` text;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 4PQbAAV1fA3eoWB.b2f8b0864d78 --database Y4muBuhFUHmxTsLMdqkkDW --execute ALTER TABLE `roles` ADD `jdDocumentUrl` text; ALTER TABLE `roles` ADD `jdDocumentText` text;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 5765
+}

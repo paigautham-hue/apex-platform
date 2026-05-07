@@ -107,6 +107,8 @@ export const roles = mysqlTable("roles", {
   rolePurpose: text("rolePurpose"),
   keyResponsibilities: json("keyResponsibilities").$type<string[]>(),
   successMetrics: json("successMetrics").$type<string[]>(),
+  jdDocumentUrl: text("jdDocumentUrl"),
+  jdDocumentText: text("jdDocumentText"),
   roleType: mysqlEnum("roleType", ["CEO", "CXO", "CXO_PLUS_ONE", "CHRO", "BOARD_MEMBER", "CHAIRMAN", "GROUP_CEO", "GROUP_CHRO"]).notNull(),
   isActive: boolean("isActive").default(true),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
