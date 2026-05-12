@@ -10,6 +10,12 @@
 > day-to-day index for the codebase.
 >
 > Last updated: 2026-04-21
+>
+> **Coverage status:** 50 subsystem maps shipped across 8 batches.
+> Every server module, page, and substantive component has a map.
+> All maps follow the strict template in `_template.md`. Fragility
+> notes are the most valuable section — they're where the next round
+> of Tier A/B/C work is hiding in plain sight.
 
 ---
 
