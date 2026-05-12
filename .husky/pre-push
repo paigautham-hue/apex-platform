@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+# Pre-push hook — enforces APEX MAPS-first workflow before code leaves
+# the laptop. See docs/MASTER_PLAN.md §8 and CLAUDE.md.
+#
+# Two checks, both BLOCK the push on failure:
+#
+# 1. check-map-orphans.mjs — refuses pushes that ADD a source file
+#    under client/src/, server/, drizzle/, or shared/ which isn't
+#    mentioned in any docs/maps/*.md. Maps are the codebase index;
+#    a new file outside the index is invisible to the next reader.
+#
+# 2. check-map-drift.mjs — refuses pushes that MODIFY a mapped
+#    source file without also updating the subsystem map that
+#    references it. STRICT BY DEFAULT.
+#
+# Bypass (use sparingly; document the reason in the PR/commit body):
+#   SKIP_MAPS_LINT=1 git push     (skips both checks)
+#   --warn-only flag              (soften check-map-drift only)
+#   git push --no-verify          (skip ALL pre-push hooks — emergency only)
+
+node scripts/check-map-orphans.mjs || exit 1
+node scripts/check-map-drift.mjs || exit 1
