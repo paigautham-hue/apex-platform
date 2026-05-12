@@ -61,14 +61,14 @@ others via the Forward & Backward Dependencies section.
 
 | Map | Covers | Status |
 |---|---|---|
-| [`360-feedback.md`](maps/360-feedback.md) | `server/360-engine.ts`, `server/routers/threeSixty.ts`, `ThreeSixty.tsx`, radar chart, blind aggregation | ⏳ planned |
+| [`360-feedback.md`](maps/360-feedback.md) | `server/360-engine.ts`, `server/routers/threeSixty.ts`, `ThreeSixty.tsx`, radar chart, blind aggregation | ✅ current (2026-04-21) |
 
 ### Financial
 
 | Map | Covers | Status |
 |---|---|---|
-| [`financial-cockpit.md`](maps/financial-cockpit.md) | `FinancialCockpit.tsx`, `Financial.tsx`, plans, metrics, metricValues, financial-analytics | ⏳ planned |
-| [`incentives.md`](maps/incentives.md) | `IncentiveSimulator.tsx`, `incentiveConfigs`, `incentiveComputations` | ⏳ planned |
+| [`financial-cockpit.md`](maps/financial-cockpit.md) | `FinancialCockpit.tsx`, `Financial.tsx`, plans, metrics, metricValues, financial-analytics | ✅ current (2026-04-21) |
+| [`incentives.md`](maps/incentives.md) | `IncentiveSimulator.tsx`, `incentiveConfigs`, `incentiveComputations` | ✅ current (2026-04-21) |
 
 ### Capture & voice
 
