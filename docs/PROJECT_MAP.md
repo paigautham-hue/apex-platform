@@ -34,11 +34,11 @@ others via the Forward & Backward Dependencies section.
 
 | Map | Covers | Status |
 |---|---|---|
-| [`governance-cycle.md`](maps/governance-cycle.md) | `governanceCycles`, `governanceAssessments`, `assessmentAssignments`, `feedbackTypes`, `reveal-gating.ts`, cycle state machine | ⏳ planned |
-| [`mandate-journals.md`](maps/mandate-journals.md) | `mandateJournals`, MyBridge mandate-card pattern, plan-to-log tracking | ⏳ planned |
-| [`company-reflections.md`](maps/company-reflections.md) | `companyReflections`, MyIsland reflection form, 5-field structure | ⏳ planned |
-| [`chairman-guidance.md`](maps/chairman-guidance.md) | `chairmanGuidance`, ChairmanAssess writes, guidance display | ⏳ planned |
-| [`rhythm-engine.md`](maps/rhythm-engine.md) | `server/rhythm-engine.ts`, `server/routers/rhythm.ts`, daily focus computation, PrimaryActionCard data source | ⏳ planned |
+| [`governance-cycle.md`](maps/governance-cycle.md) | `governanceCycles`, `governanceAssessments`, `assessmentAssignments`, `feedbackTypes`, `reveal-gating.ts`, cycle state machine | ✅ current (2026-04-21) |
+| [`mandate-journals.md`](maps/mandate-journals.md) | `mandateJournals`, MyBridge mandate-card pattern, plan-to-log tracking | ✅ current (2026-04-21) |
+| [`company-reflections.md`](maps/company-reflections.md) | `companyReflections`, MyIsland reflection form, 5-field structure | ✅ current (2026-04-21) |
+| [`chairman-guidance.md`](maps/chairman-guidance.md) | `chairmanGuidance`, ChairmanAssess writes, guidance display | ✅ current (2026-04-21) |
+| [`rhythm-engine.md`](maps/rhythm-engine.md) | `server/rhythm-engine.ts`, `server/routers/rhythm.ts`, daily focus computation, PrimaryActionCard data source | ✅ current (2026-04-21) |
 
 ### People & org
 
