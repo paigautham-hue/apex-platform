@@ -24,11 +24,11 @@ others via the Forward & Backward Dependencies section.
 
 | Map | Covers | Status |
 |---|---|---|
-| [`data-model.md`](maps/data-model.md) | `drizzle/schema.ts`, `drizzle/relations.ts`, migrations, table groups | ⏳ planned |
-| [`db-layer.md`](maps/db-layer.md) | `server/db.ts` — every query helper, RBAC primitives | ⏳ planned |
-| [`auth-rbac.md`](maps/auth-rbac.md) | `server/_core/trpc.ts`, `client/src/_core/hooks/useAuth.ts`, `isChairmanOrAdmin`, `canEditCompanyFinancials`, `canAssessTarget` (planned) | ⏳ planned |
-| [`tenant-context.md`](maps/tenant-context.md) | `server/tenant-context.ts`, `useViewer`, scope hooks | ⏳ planned |
-| [`infra.md`](maps/infra.md) | `server/_core/index.ts`, `vite.config.ts`, `drizzle.config.ts`, build/test scripts, `package.json` | ⏳ planned |
+| [`data-model.md`](maps/data-model.md) | `drizzle/schema.ts`, `drizzle/relations.ts`, migrations, table groups | ✅ current (2026-04-21) |
+| [`db-layer.md`](maps/db-layer.md) | `server/db.ts` — every query helper, RBAC primitives | ✅ current (2026-04-21) |
+| [`auth-rbac.md`](maps/auth-rbac.md) | `server/_core/trpc.ts`, `client/src/_core/hooks/useAuth.ts`, `isChairmanOrAdmin`, `canEditCompanyFinancials`, `canAssessTarget` (planned) | ✅ current (2026-04-21) |
+| [`tenant-context.md`](maps/tenant-context.md) | `server/tenant-context.ts`, `useViewer`, scope hooks | ✅ current (2026-04-21) |
+| [`infra.md`](maps/infra.md) | `server/_core/index.ts`, `vite.config.ts`, `drizzle.config.ts`, build/test scripts, `package.json` | ✅ current (2026-04-21) |
 
 ### Rhythm core (the monthly cycle)
 
@@ -45,7 +45,7 @@ others via the Forward & Backward Dependencies section.
 | Map | Covers | Status |
 |---|---|---|
 | [`org-tree.md`](maps/org-tree.md) | `orgUnits`, `persons`, `roles`, `reportsToRoleId` hierarchy, `dependencyChains` | ⏳ planned |
-| [`scope.md`](maps/scope.md) | `server/scope.ts`, `server/routers/scope.ts`, scoped queries (org tree, direct reports, team submission status) | ⏳ planned |
+| [`scope.md`](maps/scope.md) | `server/scope.ts`, `server/routers/scope.ts`, `client/src/hooks/useViewer.ts`, scoped queries (org tree, direct reports, team submission status) | ✅ current (2026-04-21) |
 | [`people-pages.md`](maps/people-pages.md) | `People.tsx`, `PersonProfile.tsx`, person CRUD | ⏳ planned |
 
 ### Universal surfaces (the fractal pages)
