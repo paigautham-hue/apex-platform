@@ -4,9 +4,13 @@
 > agent) reads this first. Every direction change updates this file in
 > the same commit as the code change.
 >
-> Last updated: 2026-04-21 (v2 — added §2 Current State, §3 principles
-> 9 & 10 "Observability is a feature" / "Failure modes are designed",
-> tenant-ID migration commitment, plus renumbering of §3-§9)
+> Last updated: 2026-04-21 (v3 — added §3.10 Security baseline, §4
+> routine/non-routine definition + IC detail + measurement plan, §5.3
+> cascade reading rule, §5.7 notification channel matrix + quiet hours,
+> §5.8 RBAC tightening, Phase 1 sub-prioritization, §8 owners +
+> decide-by dates + 2 new decisions, §10 Success Metrics, §11 Risk
+> Register, §12 Plan Change Process, §13 Glossary; principle "Failure
+> modes are designed" renumbered to §3.11)
 
 ---
 
@@ -74,6 +78,14 @@ When APEX is done:
 APEX is **not** built for 5,000+ user enterprises. It's built for the
 specific shape of a holding-company governance structure with ~500
 total monthly users at the outside.
+
+**Beyond ~500 users** (multiple holding companies, or MEF growing past
+its current portfolio): APEX does not scale by adding nodes. It scales
+by becoming multi-tenant in the conventional sense — separate
+deployments, separate data planes, SSO federated to the holding
+company's IdP, an audit-log retention policy that meets the regulatory
+ask of the strictest jurisdiction in scope. That work is Phase 5+ and
+requires the readiness checklist in §6 to land first.
 
 ---
 
@@ -212,7 +224,7 @@ These are explicit, ranked by blast radius:
 ## 3. Non-Negotiable Principles
 
 Principles 1-8 are listed in order of priority when they collide.
-Principles 9-10 are enabling principles — they apply across all the
+Principles 9-11 are enabling principles — they apply across all the
 above rather than collide with them.
 
 1. **Privacy & trust scaffolding before features.** Every new write
@@ -272,7 +284,35 @@ above rather than collide with them.
    The audit-log surface is **not optional** for new features. If a
    feature can't tell you what it did and why, it's not ready.
 
-10. **Failure modes are designed.** Every async path has a defined
+10. **Security has a baseline.** A short, concrete list — not a vague
+    aspiration:
+    - **Authentication:** SSO/SAML federation when a second holding
+      company onboards. Until then, the existing JWT-cookie flow stays.
+    - **MFA:** required for any user with admin role OR with the
+      Chairman/Group-CEO role. Optional but encouraged for all others.
+    - **Session timeout:** 12-hour idle for fund-level users; 1-hour
+      idle for sensitive admin pages (`/governance-admin`,
+      `/admin`).
+    - **Audit log retention:** 7 years for `auditLogs` rows referencing
+      financial actuals, assessments, guidance, or memory deletes.
+      90 days for everything else. Stored in immutable form
+      (append-only table, no UPDATE/DELETE except by a documented
+      retention-policy job).
+    - **Data classification:** every column in `drizzle/schema.ts` is
+      tagged in a comment as `PUBLIC` / `INTERNAL` / `RESTRICTED` /
+      `CONFIDENTIAL`. Financial actuals and chairman guidance are
+      CONFIDENTIAL. Person observations are RESTRICTED. Org-unit
+      structure is INTERNAL.
+    - **Sensitive operations** (revoke access grant, hard-delete
+      memory, change a person's `tenantId`, escalate to admin role):
+      require 2FA confirmation when MFA is enabled.
+    - **Backups:** nightly DB snapshot retained 30 days; weekly retained
+      1 year. Restore tested quarterly.
+
+    These are minimums. Tighter requirements (e.g. data residency in
+    India) come from individual deployments and are layered on top.
+
+11. **Failure modes are designed.** Every async path has a defined
     failure behavior:
     - **LLM down or rate-limited:** Voice classifier falls back to a
       keyword router or a "we couldn't understand — pick a destination"
@@ -301,10 +341,20 @@ above rather than collide with them.
 
 ## 4. Personas & Frictionless Flow Targets
 
-A "frictionless" flow means **minutes between intent and outcome**.
-**Routine** ceilings cover the monthly cycle work each persona does
-every cycle. **Non-routine** ceilings cover quarterly/episodic flows
-like calibration or board prep.
+A "frictionless" flow means **minutes between intent and outcome** —
+how long it takes a persona to go from opening APEX to having
+accomplished the task they came for.
+
+- **Routine ceilings** are the budget for **monthly cycle work** each
+  persona does **every** cycle. If a CXO can't get through their
+  Bridge in their routine ceiling, the system isn't working for them.
+- **Non-routine ceilings** are the budget for **quarterly or episodic
+  flows** — calibration sessions, board prep, cycle launch, a tough
+  guidance conversation. These happen less often but cost more time.
+  We accept higher minutes because the cognitive load is real.
+
+Voice budgets the same minutes but assumes the user is talking, not
+typing — a 30-second voice log replaces a 90-second form fill.
 
 | Persona | Count | Primary surface | Routine ceiling | Non-routine ceiling |
 |---|---:|---|---:|---:|
@@ -320,6 +370,45 @@ like calibration or board prep.
 **Voice path target**: any routine ceiling above is achievable by
 voice in under 60% of the time budget (e.g. CXO 8-min ceiling → ≤5
 min by voice). The form path stays for users who prefer it.
+
+### What an IC actually does in APEX
+
+The IC persona is the simplest and the most numerous (~350 at full
+saturation). To avoid confusion, here's their concrete loop:
+
+- **Once a month**, an IC opens `/me` and:
+  - Reviews the mandates / OKRs their manager has set for them
+    (read-only — managers own the mandate text; ICs respond to it).
+  - Adds 1-3 short journal entries on what they did against each
+    mandate this month.
+  - Self-rates 1-10 on each mandate.
+  - Optionally adds a free-text reflection (private to them).
+- **Once a week** (opt-in): receives a weekly digest notification
+  with one nudge if they haven't logged yet.
+- **Their manager** sees their cycle status on the manager's `/team`
+  page and assesses them at cycle close. The IC sees the assessment
+  + manager guidance after reveal.
+
+ICs do NOT use `/team` (they have no direct reports), `/group`, the
+Financial Cockpit, or `/governance-admin`. The sidebar hides those
+items for IC viewers.
+
+### How we measure the ceilings
+
+Time-budget targets are unfalsifiable without telemetry. APEX
+instruments four event classes, written to a `userActivityEvents`
+table *(planned, Phase 2 deliverable)*:
+
+| Event | When emitted | Used to measure |
+|---|---|---|
+| `page_view` | Every page mount | Time on `/me` etc. |
+| `cycle_action` | Journal/plan/rating/reflection write, assess submit | Per-cycle effort by persona |
+| `voice_path_used` | Mic tap → confirm | Voice adoption + voice-vs-form ratio |
+| `cycle_complete` | Submit Month finishes | Total minutes-from-cycle-open to submission |
+
+Quarterly review of telemetry against the persona table. Targets
+revised in this file (§4) when reality diverges. See §10 for the
+specific metrics derived from these events.
 
 ---
 
@@ -398,6 +487,26 @@ the single chokepoint for all assessment writes. `chairman/assess`
 becomes a special case of "assess your reports" with `assessor =
 chairman`. Every leader gets the same UI on `/team`.
 
+**Reading rule (separate from writing):**
+
+For any viewer V looking at assessment data about target Y, the read
+is permitted iff one of:
+- V is Y (you can always read assessments about you)
+- V is Chairman / Admin
+- V is in Y's leader chain (transitive `reportsToRoleId`)
+- V owns the org unit Y belongs to (CEO reading their company's data)
+- V is the assessor (you can read what you wrote)
+- An explicit `accessGrant` row scopes V to Y's org unit
+
+Critically, this does **not** include peer assessors reading each
+other's blind feedback — peer assessments stay anonymous to the
+target and to other peers. The `feedbackTypes.isBlind` flag enforces
+this at the API layer.
+
+Reading guidance notes follows the same rule, with one tightening:
+when a chairman guidance row is `dimensionKey`-scoped, only viewers
+who can see that dimension's assessments can see the guidance.
+
 ### 5.4 Voice agent layer
 
 Two surfaces:
@@ -475,13 +584,61 @@ Four surfaces, sequenced by trust depth:
 
 ### 5.7 Notifications + rhythm
 
-- One notification table, daily digest cadence (not per-event blast).
-- Event types: cycle-open, cycle-close, deadline-T7/T3/T1,
-  chairman-submitted-for-you, perception-gaps-revealed,
-  weekly-pulse-nudge, chronic-deferral-flag, calibration-prep-ready.
-- Per-user preferences (existing `userPreferences` table) control
-  category opt-in/out and quiet hours.
-- Browser push (already wired) + iOS push (Capacitor) when app ships.
+**Architecture:**
+
+- One notification table (`notifications`), daily digest cadence
+  (not per-event blast).
+- Per-user delivery records: each notification row has a `deliveries`
+  child table tracking `(channel, status, attemptedAt, deliveredAt,
+  failureReason)`. We know which delivery on which channel succeeded
+  or failed.
+- Retry semantics: failed deliveries are retried twice (exponential
+  backoff, capped at 4 hours). After 3 attempts the delivery is
+  marked `permanently_failed` and the user can read the notification
+  in-app on next session.
+
+**Event types:**
+
+- `cycle_open`, `cycle_close`, `cycle_revealed`
+- `deadline_T7`, `deadline_T3`, `deadline_T1`
+- `chairman_submitted_for_you` (target-scoped)
+- `perception_gaps_revealed`
+- `weekly_pulse_nudge`
+- `chronic_deferral_flag`
+- `calibration_prep_ready`
+- `assignment_overdue`
+
+**Channels:**
+
+| Channel | When used | Default per persona |
+|---|---|---|
+| **In-app inbox** | Always (read at `/notifications` and on every dashboard) | All users |
+| **Browser push** | Real-time on `cycle_open`, `cycle_revealed`, `assignment_overdue` (high urgency) | Opt-in via `NotificationPreferences.tsx` |
+| **iOS push** | Same as browser push, on the Capacitor app *(Phase 4)* | Opt-in |
+| **Email digest** | Daily 8am local. Bundles all in-app notifications from the prior 24h *(Phase 2)* | Opt-in; default off for ICs, default on for fund-level users |
+| **SMS** | Chairman/CHRO-only, only on `deadline_T1` + cycle status changes *(Phase 4)* | Opt-in; default off |
+
+**Quiet hours:**
+
+- Per-user `quietHoursStart` and `quietHoursEnd` in `userPreferences`
+  (existing).
+- During quiet hours, push channels (browser/iOS) are silenced;
+  notifications still arrive in-app and queue for the morning digest.
+- SMS bypasses quiet hours only when severity = `CRITICAL` (deadline
+  passed for the Chairman on a fund-wide cycle).
+- Server-side delivery uses each user's local timezone (already on
+  `userPreferences`).
+
+**Per-category opt-out:**
+
+Users can opt out of any event type except `cycle_close` and
+`perception_gaps_revealed` — those are governance-critical and
+non-mutable. Opting out of `weekly_pulse_nudge` is fine and common.
+
+**Cost ceiling:** SMS has a real per-message cost. Per-user SMS
+budget = 5 messages/month. Above that, the system writes only
+in-app + email. (See §8 Open Decisions on the LLM cost ceiling for
+the analog policy on AI calls.)
 
 ### 5.8 RBAC matrix
 
@@ -498,8 +655,11 @@ Four surfaces, sequenced by trust depth:
 | Generate assignments | Chairman / Admin |
 | Run AI batch jobs (commitment tracker, insights gen) | Chairman / Admin |
 | Edit financial actuals for a company | CEO of that company / Chairman / Admin |
-| Read all agenticMemories about a person | the person + their leader chain + Chairman / Admin |
-| Edit/delete an agentic memory | the person it's about |
+| Read agenticMemories about a person, scoped to `pattern` / `observation` / `commitment` categories | the person + their **direct manager** + Chairman / Admin |
+| Read `mandate` / `guidance` memories about a person | the person + their direct manager + Chairman / Admin (broader chain still excluded — even a grandparent manager doesn't see direct-manager guidance unless it's escalated to them) |
+| Read memories about a person scoped to `private` reflections | the person only |
+| Edit an agentic memory | the person it's about (subject) |
+| Hard-delete an agentic memory | the person it's about (subject); audit log records the event |
 | Read AccessGrants | tenant members |
 | Revoke an AccessGrant | grant creator / Admin (with tenant check) |
 
@@ -525,23 +685,55 @@ CLAUDE.md rewrite, MAPS-first memory rule. ✅
 **Goal:** every leader runs the cycle on their reports using the same
 UI the Chairman uses. Stop being "Chairman's app."
 
+**Phase 1 is too packed to ship as one batch. Sub-prioritized into
+three tiers — ship Tier A before any Tier B work begins.**
+
+**Tier A — cascade foundation (must ship first):**
+
 - [ ] `server/db.ts:canAssessTarget(assessorPersonId, targetType,
       targetId)` — generalized RBAC for assessment writes.
+- [ ] Reading rule helper (§5.3) — `canReadAssessment(viewer, target)`
+      single chokepoint for assessment reads.
 - [ ] `/team` gains an "Assess your team" tab → reuses
       `ChairmanAssess.tsx` shape, scoped to direct reports.
-- [ ] PrimaryActionCard recognizes "you have N reports to assess this
-      cycle" and links accordingly.
 - [ ] Notification triggers fan out based on the leader↔reports
       chain, not Chairman-only.
+- [ ] Subsystem maps written for the foundation batch (data-model,
+      db-layer, auth-rbac, scope, cascade) — unblocks every later
+      change.
+
+**Definition of done for Tier A:** a CEO at MGPS can assess their
+direct reports using the same UI the Chairman uses, and the writes
+flow through one `canAssessTarget` chokepoint. Subsystem maps for
+the foundation are ✅.
+
+**Tier B — UX polish on top of cascade:**
+
+- [ ] PrimaryActionCard recognizes "you have N reports to assess this
+      cycle" and links accordingly.
 - [ ] `/me` and `/today` deduped — `/today` becomes the daily-focus
       surface, `/me` is the monthly workspace.
-- [ ] Voice capture destination confirmation card (Meridian pattern).
 - [ ] EmptyState component applied to 6 highest-traffic empty states.
 - [ ] Submit confirmation modal on MyBridge / MyIsland / team-assess.
 - [ ] Cycle-complete moment after submit.
-- [ ] Notification digest (replace per-event blast).
-- [ ] Subsystem maps written for all 40 subsystems in
-      `docs/PROJECT_MAP.md` (status ⏳ → ✅).
+
+**Tier C — adjacent improvements (parallelizable with Tier B):**
+
+- [ ] Voice capture destination confirmation card (Meridian pattern).
+- [ ] Notification digest (replace per-event blast) + per-user
+      delivery records + retry semantics.
+- [ ] Subsystem maps written for the remaining ~35 subsystems
+      (rhythm core, universal surfaces, voice, AI, financial,
+      governance ops, adjacent flows, access control, notifications,
+      onboarding, calendar, admin, seed, shell).
+
+**Definition of done for the whole phase:** a CEO at MGPS can open
+APEX, see their company dashboard, assess each of their 4 direct
+reports, submit, and the same flow that updates the fund-level
+`aiInsights` table also updates the company-level analytics. Same UI
+used by the Chairman. All 40 subsystem maps are ✅. Voice capture
+shows destination confirmation. Notifications are daily-digest, not
+per-event.
 
 **Definition of done:** a CEO at MGPS can open APEX, see their company
 dashboard, assess each of their 4 direct reports, submit, and the same
@@ -699,50 +891,33 @@ updates this section.
 Living list. Add items here when you flag a decision the project
 hasn't made; close items by linking the answer.
 
-- [ ] **iOS-first vs PWA-first** — currently planned as PWA → Capacitor
-      wrap in Phase 4. Should iOS become Phase 2 if usage demands?
-- [ ] **Whisper vs Web Speech API** for voice transcription accuracy
-      — Meridian uses S3-upload-then-Whisper for capture; we have
-      Web Speech in Capture. Test side-by-side before Phase 2 ships.
-- [ ] **Notification delivery surface** — email digest? SMS for
-      Chairman-only urgent? Slack? Currently in-app + browser push.
-      Decide before Phase 1 ships the digest.
-- [ ] **Cycle alignment across cascade levels** — fund-wide cycle is
-      monthly. Should portfolio companies be allowed to run an extra
-      mid-month sub-cycle? Default: no. Override case: TBD.
-- [ ] **Agentic memory deletion vs invalidation** — when a user
-      rejects a memory, hard delete or soft (`invalidatedAt`)?
-      **Decided in §5.5:** hard delete for memory subject's own
-      memories; soft for AI-derived memories the subject didn't author.
-      Audit log records the event in both cases.
-- [ ] **Multi-tenant trigger** — what concrete event flips us into
-      Phase 5+ multi-tenant work? Proposed: a second holding company
-      signs a written commitment to adopt APEX. Until then,
-      `TENANT_ID = 1` hardcoding stays.
-- [ ] **Company-specific dimensions** — `/my-island` uses 6 hardcoded
-      `DEFAULT_COMPANY_DIMENSIONS`. Should companies define their own?
-      The `orgUnits.customMetrics` field exists in the schema but
-      isn't wired. Decide in Phase 1 polish or defer to Phase 3.
-- [ ] **Co-authoring on company reflections** — confirm before
-      Phase 2 whether a CEO and CFO co-authoring a company reflection
-      is needed. Default: no.
-- [ ] **HR data import** — do we ingest from an existing Manipal HRIS
-      (employees, roles, reporting lines)? Current path: manual seed
-      + `Onboarding.tsx`. Re-visit when cascade reaches company-level
-      ICs (~Phase 4).
-- [ ] **Non-English voice support** — some portfolio company leaders
-      may prefer Hindi or Kannada. Whisper supports both; intent
-      classifier prompts are English-only today. Defer to Phase 5+.
-- [ ] **Data retention policy** — how long do we keep journals,
-      observations, memories, audit logs? Need a written policy before
-      the second holding company onboards.
-- [ ] **User offboarding** — what happens to a CXO/CEO's data when
-      they leave? Soft-delete vs export-and-purge vs anonymise. Need
-      a written policy before any user actually leaves.
-- [ ] **LLM cost ceiling** — at full saturation (~500 users × 12
-      cycles × N AI calls/cycle), what's the budget? Need monitoring
-      + alerts before Phase 3 (memory + coach surfaces multiply the
-      call rate).
+Each row has an **owner** (who decides) and a **by** date (when the
+decision needs to land — usually the start of the phase that would
+otherwise block on it). Owners: **GP** = Gautham Pai (Chairman, default
+product owner); **MD** = Abhay (operating decisions); **CHRO** =
+Pramod (HR policy decisions); **ENG** = whoever is the lead engineer
+on the relevant subsystem; **PROD** = whoever wears the product hat
+this week (no formal role yet).
+
+| # | Decision | Owner | By | Status |
+|---|---|---|---|---|
+| 1 | **iOS-first vs PWA-first** — PWA → Capacitor in Phase 4 is the default. Should iOS jump to Phase 2 if mobile usage data demands? | GP + PROD | Start of Phase 2 | open |
+| 2 | **Whisper vs Web Speech API** — Meridian uses S3-upload-then-Whisper; we use Web Speech in `Capture.tsx`. Test side-by-side before Phase 2 voice work commits to one path. | ENG | Start of Phase 2 | open |
+| 3 | **Notification delivery channels** — email digest? SMS for Chairman-only urgent? Slack? Current: in-app + browser push. See §5.7 for the proposed channel matrix; confirm before Phase 1 Tier C. | GP + MD | Phase 1 Tier C kickoff | open (proposed in §5.7) |
+| 4 | **Cycle alignment across cascade levels** — fund-wide cycle is monthly. Can a portfolio company run an extra mid-month sub-cycle? Default: no. Override case: TBD. | GP | Phase 1 done | open |
+| 5 | **Agentic memory deletion vs invalidation** — hard delete or soft `invalidatedAt`? | ENG | Phase 3 start | **decided in §5.5**: hard delete for subject's own memories; soft for AI-derived; audit log on both |
+| 6 | **Multi-tenant trigger** — what flips us into Phase 5+ multi-tenant work? | GP | when externally triggered | proposed: "a second holding company signs written commitment" |
+| 7 | **Company-specific dimensions** — `/my-island` uses 6 hardcoded dims. Should companies override via `orgUnits.customMetrics`? | GP + CHRO | Phase 1 Tier B | open |
+| 8 | **Co-authoring on company reflections** — CEO + CFO drafting the company reflection together. Default: no. | GP | Phase 2 start | open |
+| 9 | **HR data import** — ingest from an existing Manipal HRIS, or stick with manual seed + Onboarding? | CHRO + ENG | Phase 4 (cascade-to-IC) | open |
+| 10 | **Non-English voice** — Hindi/Kannada support for portfolio company leaders. Whisper supports both; classifier prompts are English-only today. | GP + CHRO | Phase 5+ trigger | deferred |
+| 11 | **Data retention policy** — durations for journals, observations, memories, audit logs. Mandatory before second-tenant onboarding. | GP + Legal | Multi-tenant trigger | open |
+| 12 | **User offboarding** — what happens to data when a CXO/CEO leaves? Soft-delete vs export-and-purge vs anonymise. Mandatory before first attrition event. | CHRO + Legal | First attrition event | open |
+| 13 | **LLM cost ceiling** — budget at full saturation. Monitoring + alerts. Critical before Phase 3 (memory + coach surfaces multiply call rate). | ENG + GP | Phase 3 kickoff | open |
+| 14 | **2FA / MFA enforcement scope** (per §3.10 security baseline) — when and for whom? | GP + ENG | Phase 5+ trigger | proposed: required for admin role + Chairman/Group-CEO |
+| 15 | **Audit-log retention specifics** — 7 years for financial/assessment/guidance/memory-delete events, 90 days otherwise (per §3.10). Confirm with legal counsel. | GP + Legal | Multi-tenant trigger | proposed in §3.10 |
+
+When a decision is **decided**, change `open` → `decided YYYY-MM-DD by NAME` and add a one-line rationale. Do not delete the row — the audit trail matters.
 
 ---
 
@@ -768,6 +943,229 @@ Living rules for this file and the maps:
 6. **Orphan enforcement is strict.** `scripts/check-map-orphans.mjs`
    flags any source file not referenced in at least one map. New
    files must be added to a map (or a new map created).
+
+---
+
+---
+
+## 10. Success Metrics
+
+How we know APEX is working — for real, not by vibes. Each metric has
+a **target**, a **measured-from event** (telemetry source per §4
+measurement plan), and a **review cadence**.
+
+### System-level (the only ones the Chairman should care about)
+
+| Metric | Target | Measured from | Review |
+|---|---|---:|---|
+| **Cycle submission completeness** | ≥95% of expected submissions per cycle | `cycle_complete` events / expected from `assessmentAssignments` | Monthly at cycle close |
+| **Calibration meeting length** | ≤60 min (current ad-hoc ≈ 120 min) | manual timer; CHRO logs in `calibrationSessions.durationMinutes` | Quarterly |
+| **Time from cycle-open to majority-submission** | ≤21 days (target: 70% submit by day 21 of a 30-day cycle) | First `cycle_complete` event per user, vs `governanceCycles.openDate` | Monthly |
+| **Perception-gap closure over 3 cycles** | At least 60% of `gap ≥ 2` instances close by 1+ point within 3 cycles | Pair-wise gap delta in `governanceAssessments` for same (target, dim, feedbackType) tuple over time | Quarterly |
+| **Chronic-deferral rate** | <10% of plan items deferred 3+ cycles | `aiInsights` rows of type `COMMITMENT_TRACKING` / total plan items | Quarterly |
+
+### Per-persona ceilings (proves the friction targets in §4)
+
+| Metric | Target | Measured from | Review |
+|---|---|---:|---|
+| **Median CXO cycle-completion minutes** | ≤8 min routine | `cycle_complete` minus first `cycle_action` of the cycle, per CXO | Monthly |
+| **Median CEO cycle-completion minutes (self + island)** | ≤12 min | same, per CEO | Monthly |
+| **Voice-vs-form ratio** | ≥40% of writes via voice by end of Phase 2 | `voice_path_used` events / total `cycle_action` events | Monthly during Phase 2; quarterly after |
+| **PrimaryActionCard click-through** | ≥60% of CTAs clicked by their owner within 24h of impression | telemetry on `PrimaryActionCard` mount → outbound nav | Monthly |
+
+### AI trust (proves the coaching layer is actually trusted)
+
+| Metric | Target | Measured from | Review |
+|---|---|---:|---|
+| **Memory verification rate** | ≥80% of AI-extracted memories are reviewed by their subject within 30 days | `agenticMemories.needsVerification` cleared timestamp vs created | Monthly during Phase 3 |
+| **Voice intent acceptance rate** | ≥85% of voice classifications accepted without edit | `voice.dispatchIntent` outcomes: accept vs edit vs reject | Monthly |
+| **Coach card dismiss rate** | ≤25% of AI coach cards dismissed within 60 sec of impression (signals bad output) | `aiInsights` view + dismiss events | Monthly during Phase 3 |
+| **1:1 prep usage** | ≥50% of leaders open a 1:1 prep brief within 7 days of any 1:1 meeting | telemetry on `/people/:id` 1:1-prep button | Monthly during Phase 2-3 |
+
+### Reliability (proves the failure-mode design is real)
+
+| Metric | Target | Measured from | Review |
+|---|---|---:|---|
+| **p99 page load** | <3 sec | server access logs + RUM | Weekly |
+| **LLM call success rate** | ≥99% over rolling 7 days | `aiDecisions` log per §3.9 | Weekly |
+| **Notification delivery rate** | ≥98% within target channel | `notificationDeliveries.status` | Weekly |
+| **Voice classification fallback rate** | <5% (i.e. ≥95% don't need the keyword-router fallback) | `voiceClassifications` log | Weekly during Phase 2 |
+
+**These metrics drive the master plan.** When a target is consistently
+missed for 2+ review cycles, the next phase's scope re-opens. Don't
+celebrate shipping if the metrics don't move.
+
+---
+
+## 11. Risk Register
+
+Top risks that could derail APEX. Each has a **likelihood** × **impact**
+rating (1-5 each) and a **mitigation owner**. Review quarterly.
+
+| # | Risk | Likelihood | Impact | Score | Mitigation | Owner |
+|---|---|---:|---:|---:|---|---|
+| R1 | **LLM cost spike** at Phase 3 (memory + coach surfaces multiply call rate). | 4 | 4 | 16 | Per-user LLM budget + alerts wired into Phase 3. Caching layer for repeated prompts. Open Decision §8 #13. | ENG |
+| R2 | **Chairman attrition risk** — the Chairman is the lynchpin of the rhythm. If he steps away, the cycle stops. | 2 | 5 | 10 | Cascade design (§5.3) makes the rhythm work for every leader, not just the Chairman. The MD is the operational owner; the Chairman is the ceremonial one. By Phase 1's end the Chairman is *important* but not *required* for any monthly cycle to close. | GP + MD |
+| R3 | **Manus's parallel changes diverging from this plan.** Manus pushes to main directly; if the plan diverges from what Manus is building, we get architectural drift. | 4 | 4 | 16 | Both Claude and Manus read `MASTER_PLAN.md` + relevant subsystem maps before changing code. The MAPS-first hook (§9) is the safety net. Quarterly architecture review against the plan. | GP + ENG |
+| R4 | **Voice agent unreliability** breaks the trust hinge. Users stop using voice; the friction targets collapse. | 3 | 5 | 15 | Multi-layer defense: parse → preview → confirm always available. Voice destination card. Confidence-aware UI. Per §3.10, LLM-down fallback always available. Phase 2 instrument the acceptance rate metric (§10). | ENG |
+| R5 | **Privacy violation incident** — AI surfaces something to the wrong viewer. | 2 | 5 | 10 | Single chokepoint per RBAC concern (`canAssessTarget`, `canReadAssessment`, `canEditCompanyFinancials`). Every read filters by `tenantId`. Audit log on every RBAC deny (§3.9). Penetration test scheduled at Phase 4 close. | ENG |
+| R6 | **Cycle deadline conflicts with portfolio company operating realities.** A CEO is on the road during deadline week. | 3 | 3 | 9 | Cycle structure tolerates late submission (per §3.10). Calibration brief surfaces the late-submitter so the Chairman knows. Phase 2 deadline-T7/T3/T1 reminders give early warning. | CHRO |
+| R7 | **Senior leaders abandon the app** because it feels like more work, not less. | 3 | 5 | 15 | Friction-target metrics (§10) are the early warning. Voice path is the primary mitigation. Submit confirmation, EmptyState, Cycle-complete moment — all the Phase 1 polish is here. If after Phase 2 voice adoption is <30%, halt new feature work and re-design the capture flow. | GP + PROD |
+| R8 | **Regulatory ask for data residency** (India / portfolio company jurisdiction). | 2 | 4 | 8 | Open Decision §8 #11 (data retention) and §3.10 security baseline both anticipate this. Multi-tenant Phase 5+ will likely require per-deployment residency anyway. | GP + Legal |
+| R9 | **Schema migration breaks production data.** Especially as cascade introduces new RBAC checks against existing rows. | 3 | 4 | 12 | Migrations run in shadow first against a prod snapshot. RBAC changes ship with a feature flag for 1 cycle before becoming the default. Drizzle migration review checklist in the relevant subsystem map. | ENG |
+| R10 | **AI hallucination in a coach surface** — the AI tells a CXO they're improving on Margin when their data shows they're not. | 3 | 4 | 12 | Coach cards cite the data behind their claim (provenance per §5.5). User can challenge any claim (links to the supporting memory/observation/cycle). Memory contradiction detection (§3.10) catches the AI when it contradicts known facts. | ENG |
+
+**Top 3 to actively manage:** R1, R3, R4 (all scored 15-16).
+
+**Review cadence:** quarterly, in the Chairman's calibration meeting.
+New risks logged here as discovered. Risks don't go away — they're
+reweighted.
+
+---
+
+## 12. Plan Change Process
+
+When this plan changes, follow this:
+
+1. **Direction change** (something in §1, §3, §5, §6, §7 changes):
+   - Open a PR with the change to `MASTER_PLAN.md`.
+   - Include rationale in the PR body — what triggered the change,
+     what alternative was considered.
+   - Update affected subsystem maps in the same PR if the change
+     ripples down.
+   - The Chairman (or his designated PROD owner) approves direction
+     changes. Engineering approves implementation-detail-only changes.
+
+2. **Status change** (an item in §2 Current State moves bucket, an
+   open decision in §8 gets decided, a phase milestone ticks off):
+   - Update `MASTER_PLAN.md` in the same commit as the underlying
+     code/decision change. No separate doc-only PR needed.
+   - For decided items in §8, change `open` → `decided YYYY-MM-DD by
+     NAME` with a one-line rationale. **Do not delete the row.**
+
+3. **Adding a new open decision or risk:**
+   - Anyone can add. Append to the bottom of the relevant table.
+   - Assign an owner and a by-date even if approximate.
+
+4. **Recurring reviews (calendar):**
+   - **Weekly:** reliability metrics (§10 last subsection).
+   - **Monthly at cycle close:** persona-ceiling metrics + system
+     metrics + cycle-completeness review.
+   - **Quarterly:** risk register (§11) + perception-gap closure +
+     full architecture review against §5.
+   - **Annually:** rewrite §1 Vision and §3 Principles if anything has
+     fundamentally shifted. Most years this is a no-op.
+
+5. **When the plan and reality disagree:**
+   - Plan vs subsystem map → map wins for that subsystem; queue
+     master-plan update.
+   - Plan vs code → plan wins until code catches up.
+   - Plan vs metric data → re-open the relevant section; data wins.
+
+6. **Versioning:**
+   - Bump the "Last updated" timestamp at the top on any meaningful
+     change.
+   - Major rewrites (e.g. v1 → v2 → v3) note what changed at the
+     top, summary-style.
+
+---
+
+## 13. Glossary
+
+Terms used throughout this plan and the subsystem maps. When in
+doubt, this section is the source of truth — if a term in the code
+diverges from this glossary, update one of them (and update this
+glossary if the code's meaning is the right one).
+
+- **APEX** — this app. The Manipal Evergreen Fund's monthly governance
+  operating system.
+- **MEF** — Manipal Evergreen Fund. APEX's first (and currently only)
+  tenant.
+- **Cascade** — the architectural commitment that the same monthly
+  rhythm runs at every leader↔reports layer (Chairman ↔ CXOs/CEOs;
+  CEO ↔ their leadership; manager ↔ their ICs). One pattern, many
+  scopes. See §5.3.
+- **Scope** — a node in the org tree (`orgUnits`) defining the
+  subtree a viewer can see. See §5.2.
+- **Tier** — a viewer's role-derived class (`IC`/`MANAGER`/`CXO`/
+  `CEO`/`GROUP_CEO`/`CHRO`/`CHAIRMAN`). Drives which surfaces and
+  data the viewer accesses.
+- **Cycle** — a monthly governance instance (`governanceCycles` row).
+  States: `DRAFT` → `OPEN` → `CLOSED` → `REVEALED`. See §5.1, §5.7.
+- **Rhythm** — the recurring monthly pattern (log → plan → self-rate
+  → leader-rate → reveal → close → calibrate). The system organizes
+  around it.
+- **Mandate** — a single role's expected outcome, captured as a
+  string in `roles.successMetrics` (and planned for versioning via
+  `roleMandateVersions`). What a CXO commits to deliver.
+- **Bridge / Captain's Log / Next Heading** — ship metaphor for the
+  CXO workspace. Bridge = mandate cards page; Captain's Log = monthly
+  journal entry per mandate; Next Heading = next-month plan.
+- **Island** — ship metaphor for the CEO's company-scoped workspace
+  (`MyIsland.tsx`).
+- **Hull / Deck / Mast** — ship metaphor for org-zone classification
+  (Hull = critical operations; Deck = day-to-day execution; Mast =
+  strategic direction). Used in zone-health rollups.
+- **Perception gap** — the difference between a self-rating and a
+  leader-rating on the same target/dimension/cycle. Surfaced as an
+  `aiInsight` of type `PERCEPTION_GAP` when ≥ 2.
+- **Chain (dependency chain)** — a named ordered set of roles whose
+  collective performance affects a fund-level outcome. Defined in
+  `dependencyChains`. Chains have "weakest-link" health rollups.
+- **Mandate journal / Plan-to-log tracking** — the comparison of last
+  month's plan items against this month's log to flag what was
+  addressed, partially addressed, deferred, or never mentioned.
+- **Reveal** — the cycle state transition that makes leader-ratings
+  visible to the target. Triggers notifications.
+- **Calibration** — the meeting where CHRO + Chairman walk through
+  inconsistencies in a closed cycle before final reveal. Backed by
+  `calibrationSessions`.
+- **Fractal pages** — `/me`, `/team`, `/group` — same UI shape, data
+  scoped by viewer tier. Chairman's `/me` is structurally identical
+  to an IC's `/me`; only the data differs.
+- **PrimaryActionCard** — the AI-driven "your single most important
+  action right now" card that sits at the top of `/me`, `/team`, and
+  `/group`. Computed by `server/rhythm-engine.ts`.
+- **Insights Inbox** — the AI-generated insight queue per viewer.
+  `aiInsights` rows filtered by viewer scope.
+- **Memory subject** — the person an `agenticMemory` row is *about*
+  (`subjectPersonId`), distinct from the user who wrote it. Subjects
+  have hard-delete rights on memories about them (§5.5).
+- **Provenance** — a memory's link back to the raw interaction that
+  produced it (`sourceType` + `sourceId`). Clickable.
+- **Bi-temporal** — a memory has two time axes: when the claim is
+  true in the real world (`validFrom`) vs when the system stops
+  treating it as current (`invalidatedAt`). Used to handle
+  contradictions without destructive overwrite.
+- **Parse → preview → confirm** — the voice capture contract. AI
+  parses the utterance, UI shows the user what's about to be saved
+  + where, user accepts/edits/dismisses.
+- **Tap-to-talk** vs **continuous duplex** — voice modes. Tap-to-talk
+  is one-shot recording + parse. Continuous duplex is a back-and-forth
+  conversation via WebRTC + Realtime API.
+- **Destination card** — the post-capture confirmation showing where
+  the AI routed what you said ("Saved to: My Bridge → Revenue Growth
+  → Captain's Log").
+- **Tenant** — currently one (MEF). Architecturally pluralizable when
+  trigger condition fires (§8 #6).
+- **Tenant-ID hardcoding** — the known tech debt where ~9 client files
+  hardcode `TENANT_ID = 1`. Must be paid down before a second tenant.
+- **`canAssessTarget(assessor, target)`** — the single chokepoint for
+  assessment-write RBAC. Returns true iff the cascade rule permits.
+  See §5.3.
+- **`canReadAssessment(viewer, target)`** — the same idea for reads.
+  Phase 1 Tier A deliverable.
+- **`isChairmanOrAdmin(userId, tenantId)`** — gate for cycle ops,
+  guidance writes, AI batch jobs.
+- **`canEditCompanyFinancials(userId, tenantId, orgUnitId)`** — gate
+  for inline-edit on the Financial Cockpit.
+- **Subsystem map** — a `.md` file under `docs/maps/` documenting one
+  concern area's files, functions, data, dependencies, fragilities.
+  See `docs/maps/_template.md`.
+- **Drift** — a state where a subsystem map's referenced source files
+  changed but the map didn't. Pre-push hook fails on it.
+- **Orphan** — a source file not referenced in any subsystem map.
+  Pre-push hook fails on it.
 
 ---
 
