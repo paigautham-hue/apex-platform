@@ -94,19 +94,19 @@ others via the Forward & Backward Dependencies section.
 
 | Map | Covers | Status |
 |---|---|---|
-| [`governance-admin.md`](maps/governance-admin.md) | `GovernanceAdmin.tsx`, cycle launch, assignment generation, feedback-type config | ⏳ planned |
-| [`calibration.md`](maps/calibration.md) | `calibrationSessions` table, calibration UI (planned Phase 4) | ⏳ planned-future |
+| [`governance-admin.md`](maps/governance-admin.md) | `GovernanceAdmin.tsx`, cycle launch, assignment generation, feedback-type config | ✅ current (2026-04-21) |
+| [`calibration.md`](maps/calibration.md) | `calibrationSessions` table, calibration UI (planned Phase 4) | ✅ scaffold-only (2026-04-21) |
 
 ### Adjacent flows
 
 | Map | Covers | Status |
 |---|---|---|
-| [`meetings.md`](maps/meetings.md) | `Meetings.tsx`, `MeetingTimer.tsx`, `meetings` table | ⏳ planned |
-| [`goals.md`](maps/goals.md) | `Goals.tsx`, `plans`/`metrics` for goal-cascading | ⏳ planned |
-| [`reflections.md`](maps/reflections.md) | `Reflections.tsx`, `selfReflections` table, `WeeklyPulseCheck.tsx`, `PulseCheckTrends.tsx` | ⏳ planned |
-| [`decisions.md`](maps/decisions.md) | `Decisions.tsx`, `decisions` table | ⏳ planned |
-| [`observations.md`](maps/observations.md) | `Capture.tsx` observation flow, `ObservationTimeline.tsx`, `observations` table | ⏳ planned |
-| [`analytics.md`](maps/analytics.md) | `Analytics.tsx`, scope-aware analytics surfaces | ⏳ planned |
+| [`meetings.md`](maps/meetings.md) | `Meetings.tsx`, `MeetingTimer.tsx`, `meetings` table | ✅ current (2026-04-21) |
+| [`goals.md`](maps/goals.md) | `Goals.tsx`, `plans`/`metrics` for goal-cascading | ✅ current (2026-04-21) |
+| [`reflections.md`](maps/reflections.md) | `Reflections.tsx`, `selfReflections` table, `WeeklyPulseCheck.tsx`, `PulseCheckTrends.tsx` | ✅ current (2026-04-21) |
+| [`decisions.md`](maps/decisions.md) | `Decisions.tsx`, `decisions` table | ✅ current (2026-04-21) |
+| [`observations.md`](maps/observations.md) | `Capture.tsx` observation flow, `ObservationTimeline.tsx`, `observations` table | ✅ current (2026-04-21) |
+| [`analytics.md`](maps/analytics.md) | `Analytics.tsx`, scope-aware analytics surfaces | ✅ current (2026-04-21) |
 
 ### Trust & access control
 
