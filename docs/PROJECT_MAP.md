@@ -82,13 +82,13 @@ others via the Forward & Backward Dependencies section.
 
 | Map | Covers | Status |
 |---|---|---|
-| [`ai-ask.md`](maps/ai-ask.md) | `AskInterface.tsx`, `server/ai-ask.ts` — RAG pipeline | ⏳ planned |
-| [`ai-review.md`](maps/ai-review.md) | `server/ai-review.ts`, `ReviewDraftPreview.tsx`, `living-review-draft.ts`, `reviews` table | ⏳ planned |
-| [`ai-commitment.md`](maps/ai-commitment.md) | `server/ai-commitment.ts` — chronic deferral detection, classifier | ⏳ planned |
-| [`ai-insights.md`](maps/ai-insights.md) | `server/ai-insights-generator.ts`, `server/routers/insights.ts`, `InsightsInbox.tsx`, `aiInsights` table | ⏳ planned |
-| [`ai-deliberation.md`](maps/ai-deliberation.md) | `server/ai-deliberation.ts`, `server/routers/deliberation.ts`, `AIDeliberationPanel.tsx` | ⏳ planned |
-| [`agentic-memory.md`](maps/agentic-memory.md) | `server/agentic-memory.ts`, `server/routers/memory.ts`, `agenticMemories` table | ⏳ planned |
-| [`ai-llm-gateway.md`](maps/ai-llm-gateway.md) | `server/_core/llm.ts`, model routing, prompt caching | ⏳ planned |
+| [`ai-ask.md`](maps/ai-ask.md) | `AskInterface.tsx`, `server/ai-ask.ts` — RAG pipeline | ✅ current (2026-04-21) |
+| [`ai-review.md`](maps/ai-review.md) | `server/ai-review.ts`, `ReviewDraftPreview.tsx`, `living-review-draft.ts`, `reviews` table | ✅ current (2026-04-21) |
+| [`ai-commitment.md`](maps/ai-commitment.md) | `server/ai-commitment.ts` — chronic deferral detection, classifier | ✅ current (2026-04-21) |
+| [`ai-insights.md`](maps/ai-insights.md) | `server/ai-insights-generator.ts`, `server/routers/insights.ts`, `InsightsInbox.tsx`, `aiInsights` table | ✅ current (2026-04-21) |
+| [`ai-deliberation.md`](maps/ai-deliberation.md) | `server/ai-deliberation.ts`, `server/routers/deliberation.ts`, `AIDeliberationPanel.tsx` | ✅ current (2026-04-21) |
+| [`agentic-memory.md`](maps/agentic-memory.md) | `server/agentic-memory.ts`, `server/routers/memory.ts`, `agenticMemories` table | ✅ current (2026-04-21) |
+| [`ai-llm-gateway.md`](maps/ai-llm-gateway.md) | `server/_core/llm.ts`, model routing, prompt caching | ✅ current (2026-04-21) |
 
 ### Governance ops
 
