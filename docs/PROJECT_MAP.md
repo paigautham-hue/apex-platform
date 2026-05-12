@@ -112,38 +112,38 @@ others via the Forward & Backward Dependencies section.
 
 | Map | Covers | Status |
 |---|---|---|
-| [`access-control.md`](maps/access-control.md) | `accessGrants`, `accessChallenges`, `AccessGrants.tsx`, `AccessChallenge.tsx`, `server/routers/accessControl.ts` | ⏳ planned |
-| [`trust-inbox.md`](maps/trust-inbox.md) | `TrustInbox.tsx`, `server/routers/trust.ts`, challenge resolution flow | ⏳ planned |
-| [`sharing.md`](maps/sharing.md) | `server/routers/share.ts`, share-link generation, visibility rules | ⏳ planned |
+| [`access-control.md`](maps/access-control.md) | `accessGrants`, `accessChallenges`, `AccessGrants.tsx`, `AccessChallenge.tsx`, `server/routers/accessControl.ts` | ✅ current (2026-04-21) |
+| [`trust-inbox.md`](maps/trust-inbox.md) | `TrustInbox.tsx`, `server/routers/trust.ts`, challenge resolution flow | ✅ current (2026-04-21) |
+| [`sharing.md`](maps/sharing.md) | `server/routers/share.ts`, share-link generation, visibility rules | ✅ current (2026-04-21) |
 
 ### Notifications, preferences, onboarding
 
 | Map | Covers | Status |
 |---|---|---|
-| [`notifications.md`](maps/notifications.md) | `notifications` table, `server/governance-notifications.ts`, `NotificationCenter.tsx`, `PushNotificationSetup.tsx`, digest cadence | ⏳ planned |
-| [`preferences.md`](maps/preferences.md) | `userPreferences` table, `server/routers/preferences.ts`, `NotificationPreferences.tsx` | ⏳ planned |
-| [`onboarding.md`](maps/onboarding.md) | `Onboarding.tsx`, `FirstCycleWelcome.tsx`, redirect logic in `DashboardLayout.tsx` | ⏳ planned |
+| [`notifications.md`](maps/notifications.md) | `notifications` table, `server/governance-notifications.ts`, `NotificationCenter.tsx`, `PushNotificationSetup.tsx`, digest cadence | ✅ current (2026-04-21) |
+| [`preferences.md`](maps/preferences.md) | `userPreferences` table, `server/routers/preferences.ts`, `NotificationPreferences.tsx` | ✅ current (2026-04-21) |
+| [`onboarding.md`](maps/onboarding.md) | `Onboarding.tsx`, `FirstCycleWelcome.tsx`, redirect logic in `DashboardLayout.tsx` | ✅ current (2026-04-21) |
 
 ### Calendar & integrations
 
 | Map | Covers | Status |
 |---|---|---|
-| [`calendar.md`](maps/calendar.md) | `server/calendar.ts`, `server/routers/calendar.ts` | ⏳ planned |
+| [`calendar.md`](maps/calendar.md) | `server/calendar.ts`, `server/routers/calendar.ts` | ✅ current (2026-04-21) |
 
 ### Admin & internal tooling
 
 | Map | Covers | Status |
 |---|---|---|
-| [`admin.md`](maps/admin.md) | `Admin.tsx`, admin tabs (users, challenges, etc.) | ⏳ planned |
-| [`seed-and-migrations.md`](maps/seed-and-migrations.md) | `server/seed-evergreen.ts`, `server/seed.mjs`, `scripts/migrate-*.mjs`, `drizzle/*.sql` | ⏳ planned |
-| [`internal-tools.md`](maps/internal-tools.md) | `Map.tsx`, `ProfileViewAudit.tsx`, `ComponentShowcase.tsx`, `query-cache.ts` | ⏳ planned |
+| [`admin.md`](maps/admin.md) | `Admin.tsx`, admin tabs (users, challenges, etc.) | ✅ current (2026-04-21) |
+| [`seed-and-migrations.md`](maps/seed-and-migrations.md) | `server/seed-evergreen.ts`, `server/seed.mjs`, `scripts/migrate-*.mjs`, `drizzle/*.sql` | ✅ current (2026-04-21) |
+| [`internal-tools.md`](maps/internal-tools.md) | `Map.tsx`, `ProfileViewAudit.tsx`, `ComponentShowcase.tsx`, `query-cache.ts` | ✅ current (2026-04-21) |
 
 ### Shell / layout / shared UI
 
 | Map | Covers | Status |
 |---|---|---|
-| [`shell-layout.md`](maps/shell-layout.md) | `App.tsx`, `DashboardLayout.tsx`, `MobileBottomNav.tsx`, `FloatingActionButton.tsx`, `CommandPalette.tsx`, `ErrorBoundary.tsx` | ⏳ planned |
-| [`shared-types.md`](maps/shared-types.md) | `shared/types.ts`, `shared/const.ts`, `shared/constants.ts`, `client/src/lib/*`, generic UI components in `client/src/components/ui/` | ⏳ planned |
+| [`shell-layout.md`](maps/shell-layout.md) | `App.tsx`, `DashboardLayout.tsx`, `MobileBottomNav.tsx`, `FloatingActionButton.tsx`, `CommandPalette.tsx`, `ErrorBoundary.tsx` | ✅ current (2026-04-21) |
+| [`shared-types.md`](maps/shared-types.md) | `shared/types.ts`, `shared/const.ts`, `shared/constants.ts`, `client/src/lib/*`, generic UI components in `client/src/components/ui/` | ✅ current (2026-04-21) |
 
 ---
 
