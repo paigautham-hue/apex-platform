@@ -230,7 +230,7 @@ lines.push(
   "Each new source file must be added to its subsystem map's Files inventory",
 );
 lines.push("(docs/maps/*.md). The maps are the codebase index — every source file");
-lines.push("should be findable from a map. See docs/MASTER_PLAN.md §8 and");
+lines.push("should be findable from a map. See docs/MASTER_PLAN.md §9 and");
 lines.push("CLAUDE.md for the MAPS-first workflow.");
 lines.push("");
 lines.push("To bypass for a genuine emergency (document the reason in the PR body):");

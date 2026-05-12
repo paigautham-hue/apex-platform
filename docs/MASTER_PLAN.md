@@ -4,7 +4,9 @@
 > agent) reads this first. Every direction change updates this file in
 > the same commit as the code change.
 >
-> Last updated: 2026-04-21
+> Last updated: 2026-04-21 (v2 — added §2 Current State, §3 principles
+> 9 & 10 "Observability is a feature" / "Failure modes are designed",
+> tenant-ID migration commitment, plus renumbering of §3-§9)
 
 ---
 
@@ -75,9 +77,143 @@ total monthly users at the outside.
 
 ---
 
-## 2. Non-Negotiable Principles
+## 2. Current State (as of 2026-04-21)
 
-Listed in order of priority when they collide.
+The gap between where APEX is now and the end-state above. This section
+is the anchor: every Phase milestone is a delta against this snapshot.
+**Update this section whenever a major capability ships or a known tech
+debt is paid down.**
+
+### ✅ Built and stable
+
+- **Identity, org tree, multi-tenant schema.** `users`, `tenants`,
+  `persons`, `orgUnits` (with hierarchy via `parentOrgUnitId`), `roles`
+  (with `reportsToRoleId`). Every table has `tenantId`.
+- **Governance cycle schema + machinery.** 9 governance tables
+  (`feedbackTypes`, `governanceCycles`, `governanceAssessments`,
+  `assessmentAssignments`, `mandateJournals`, `companyReflections`,
+  `chairmanGuidance`, `dependencyChains`, `aiInsights`). State machine
+  DRAFT → OPEN → CLOSED → REVEALED. Cycle CRUD, assessment CRUD,
+  assignment generation by rule (self/chairman/peer/upward) all wired
+  through `server/routers.ts:governanceRouter`.
+- **Chairman flow end-to-end.** `ChairmanDashboard` (KPIs, zone health,
+  perception gaps, chain health, chronic deferrals, AI insights),
+  `ChairmanAssess` (blind assessment per dimension), `GovernanceAdmin`
+  (cycle launch, assignment generation, feedback-type config).
+- **`/me`, `/team`, `/group` fractal pages.** `Me.tsx`, `Team.tsx`,
+  `Group.tsx` render the same rhythm UI scoped by viewer tier. Driven
+  by `useViewer()` + `server/scope.ts`.
+- **MyBridge + MyIsland.** CXO mandate cards (`Log` / `Plan` /
+  `Self-rate` / `Chairman view` tabs) + CEO 6-dimension Island with the
+  5-field reflection form. Plan-to-log tracking via prior-cycle journal
+  fetch.
+- **Financial Cockpit.** 13 portfolio companies, FY27 budget vs YTD
+  actuals, inline-edit Q1-Q4 actuals (gated by `canEditCompanyFinancials`
+  to that company's CEO or Chairman/Admin), variance bands.
+- **360 Feedback hub.** `ThreeSixty.tsx` with radar chart (stable
+  `type_{feedbackTypeId}` dataKeys), per-feedback-type aggregation,
+  blind-feedback handling.
+- **Voice tap-to-talk capture.** `Capture.tsx` + `server/ai-voice-intent.ts`
+  + `server/routers/voice.ts`. Web Speech API + LLM intent
+  classification + parse → confirm flow.
+- **Trust & access control.** `accessGrants`, `accessChallenges`,
+  `AccessGrants.tsx`, `AccessChallenge.tsx`, `TrustInbox.tsx`,
+  `server/routers/accessControl.ts`. Revoke + challenge + admin
+  resolution workflows.
+- **Notifications.** `notifications` table, `server/governance-notifications.ts`,
+  `NotificationCenter.tsx`, browser push wired. Per-user preferences
+  (`userPreferences` table, `NotificationPreferences.tsx`).
+- **Onboarding wizard.** `Onboarding.tsx` 5-step flow with
+  `FirstCycleWelcome.tsx`. DashboardLayout auto-redirects when
+  `checkOnboarding` returns `{completed: false}`.
+- **AI surfaces — primary.** `server/ai-ask.ts` (RAG over governance
+  data), `server/ai-insights-generator.ts` (5 insight categories at
+  cycle close), `server/ai-commitment.ts` (chronic-deferral detection),
+  `server/ai-review.ts` (legacy review draft generation),
+  `server/ai-deliberation.ts` + `AIDeliberationPanel.tsx`.
+- **Rhythm engine.** `server/rhythm-engine.ts` + `server/routers/rhythm.ts`.
+  Computes daily focus for `PrimaryActionCard` — uses cycle state,
+  assignment status, journal completion, and AI insight severity.
+- **Dark oceanic theme.** Ship-metaphor visual identity. Default theme.
+- **Evergreen Fund seed.** `server/seed-evergreen.ts` — 1 chairman,
+  1 MD, 11 CXOs, 13 portfolio companies, 5 dependency chains, 3
+  feedback types. Idempotent.
+- **Documentation & MAPS discipline.** `MASTER_PLAN.md` (this file),
+  `PROJECT_MAP.md`, `docs/maps/_template.md`, `MERIDIAN_REFERENCE.md`.
+  Pre-push hook (`.husky/pre-push`) runs `check-map-drift.mjs` +
+  `check-map-orphans.mjs` in strict mode.
+
+### 🟡 Built but needs hardening
+
+- **Agentic memory.** `server/agentic-memory.ts` (313 lines),
+  `server/routers/memory.ts` (233 lines) exists. Schema and retrieval
+  are basic. Phase 3 expands to Meridian-grade (confidence decay,
+  contradiction detection, dedup, bi-temporal, provenance, embeddings,
+  verification UI). See `docs/MERIDIAN_REFERENCE.md` §3.
+- **Voice intent + dispatch.** Functional but one-shot — no multi-turn
+  dialogue, no destination-confirmation card after AI routing. Trust
+  hinge for voice. Phase 2 expansion.
+- **`/today` vs `/me`.** Two surfaces overlap; need explicit distinction
+  (`/today` = daily focus, `/me` = monthly workspace). Phase 1.
+- **Empty states.** Some pages have them, others bare-render. Phase 1
+  unifies via shared `EmptyState` component.
+- **Submit flows.** No confirmation modal on Submit Month for
+  MyBridge/MyIsland. Risk of accidental submission. Phase 1.
+
+### 🚧 Partially built
+
+- **Cascade.** `roles.reportsToRoleId` exists in schema but the cascade
+  isn't fully realized: `/team`'s "Assess your team" tab doesn't exist
+  yet; `canAssessTarget` helper doesn't exist yet; chairman-only RBAC
+  checks (`isChairmanOrAdmin`) gate most write paths. Phase 1 generalizes.
+- **Calibration.** `calibrationSessions` table is in the schema but no
+  UI surfaces it. CHRO has no calibration workflow today. Phase 4.
+
+### ⏳ Planned but not started
+
+- **Continuous duplex voice agent.** No WebRTC + Realtime API today.
+  Phase 4.
+- **Mobile native (Capacitor + iOS).** Web-only today. Phase 4.
+- **1:1 prep agent.** Phase 2.
+- **AI coach card on `/me`.** Phase 3.
+- **Communication style memory for Chairman.** Phase 3.
+- **Unified `/analytics` with scope picker.** Phase 5+ (after cascade).
+- **SSO/SAML, MFA, formal audit log retention policy.** Phase 5+,
+  triggered by adding the second holding company or by external audit.
+
+### 🔴 Known tech debt
+
+These are explicit, ranked by blast radius:
+
+1. **`TENANT_ID = 1` hardcoded in ~9 client files.** Documented
+   violation of principle §3.6 (tenant isolation) and §3.4 (multi-tenant
+   via scope). Acceptable while MEF is APEX's only tenant. **Must be
+   addressed before APEX is offered to a second holding company.**
+   When triggered: extract `tenantId` from auth context
+   (`useViewer().tenantId`) on the client; require `tenantId` in every
+   tRPC input that touches tenant-scoped data; remove the constant from
+   every page. See §8 Open Decisions for the trigger criteria.
+2. **Legacy review tables coexist with governance cycle tables.**
+   `assessments`, `reviews` (the old MILESTONE/QUARTERLY/ANNUAL flow)
+   still drive `Reflections.tsx`, `ReviewDraftPreview.tsx`. We chose to
+   keep them while the new governance cycle stabilises. Reconcile when
+   the cascade is real and the new flow has 3+ months of clean data.
+3. **No structured observability today.** `console.log` / `console.warn`
+   sprinkled across server modules. No metrics, no traces, no per-user
+   activity log beyond `auditLogs`. Principle §3.9 commits us to fix
+   this; concretely scoped in Phase 2.
+4. **Notification fan-out is per-event, not digested.** Phase 1
+   replaces this with a daily digest.
+5. **Voice classifier confidence isn't surfaced to the user.** Trust
+   hinge. Phase 2 fixes alongside the destination card.
+
+---
+
+## 3. Non-Negotiable Principles
+
+Principles 1-8 are listed in order of priority when they collide.
+Principles 9-10 are enabling principles — they apply across all the
+above rather than collide with them.
 
 1. **Privacy & trust scaffolding before features.** Every new write
    must answer: who can see this, when does it become visible, what
@@ -98,16 +234,19 @@ Listed in order of priority when they collide.
    tenant (Manipal Evergreen Fund). Companies are `orgUnits` with
    scope-aware queries. We will not split into per-company databases.
 
-5. **AI is a coach, not a prescriber, not a scorer.**
+5. **AI is a coach, not a prescriber, not a scorer, not a ranker.**
    - AI surfaces patterns ("Two cycles ago your gap on Margin was 3;
      this cycle it's 1. The pattern is closing.").
    - AI **never** rates people. Only humans rate humans.
+   - AI **never** ranks people. Ranking is a softer form of rating
+     that's just as politically charged.
    - AI never says "you should do X." It asks "is this what you're
      seeing?"
 
 6. **Tenant isolation is a hard invariant.** Every read and write
    filters by `tenantId`. No id-only lookups. No "I'll add the filter
-   later." Reviewed every PR.
+   later." Reviewed every PR. (Known tech debt: §2's `TENANT_ID = 1`
+   client hardcoding — acceptable until trigger event.)
 
 7. **Monthly rhythm is the heartbeat.** Daily and weekly UIs serve the
    monthly cycle. We do not add quarterly-only or annual-only features
@@ -117,13 +256,55 @@ Listed in order of priority when they collide.
    subsystem map. After changing code, update the map in the same
    commit. The `check-map-drift` hook enforces this on push.
 
+9. **Observability is a feature.** Every meaningful event in APEX
+   produces a record:
+   - Every write logs `(actor personId, action verb, target type+id,
+     tenantId, timestamp, optional reason)` to `auditLogs`.
+   - Every AI decision (intent classification, insight generation,
+     coach card content, voice-route destination) logs the model
+     version, prompt hash, output, confidence, and downstream action.
+   - Every RBAC denial logs `(actor, attempted action, denied reason)`.
+   - Slow queries (>500ms) emit a warning with the SQL fingerprint.
+   - These records support debugging, calibration, and the future
+     audit-trail UI that lets a user see "what did the AI do with what
+     I said?"
+   
+   The audit-log surface is **not optional** for new features. If a
+   feature can't tell you what it did and why, it's not ready.
+
+10. **Failure modes are designed.** Every async path has a defined
+    failure behavior:
+    - **LLM down or rate-limited:** Voice classifier falls back to a
+      keyword router or a "we couldn't understand — pick a destination"
+      form. AI coach cards show the last-cached summary with a
+      "refreshing…" indicator. Insight generation queues and retries.
+    - **Voice misclassification:** Two-step parse → preview → confirm
+      gives the user a veto. Low-confidence parses *require* a confirm
+      tap; high-confidence ones allow a quick implicit confirm.
+    - **DB down:** Read endpoints return 503 with a "service degraded"
+      banner; write endpoints reject explicitly. No silent partial
+      writes.
+    - **Notification fan-out failure:** Per-user delivery records exist
+      so we know which delivery failed. Retry semantics are explicit.
+    - **Voice session timeout:** Continuous duplex agents resume via
+      session-handle pattern (Gemini Live's pattern). State is
+      reconciled, not lost.
+    - **Cycle deadline passed without submission:** No data loss. User
+      sees "late submission" badge. Chairman can still see the late
+      submissions in the calibration brief.
+    - **Memory contradiction:** Bi-temporal `invalidatedAt` instead of
+      destructive overwrite. The user can see both versions and choose.
+    
+    "It works on the happy path" is not a shipped feature.
+
 ---
 
-## 3. Personas & Frictionless Flow Targets
+## 4. Personas & Frictionless Flow Targets
 
-A "frictionless" flow means **minutes between intent and outcome**. For
-each persona we specify the ceiling for routine cycle work; longer
-ceilings are acceptable for non-routine flows like calibration.
+A "frictionless" flow means **minutes between intent and outcome**.
+**Routine** ceilings cover the monthly cycle work each persona does
+every cycle. **Non-routine** ceilings cover quarterly/episodic flows
+like calibration or board prep.
 
 | Persona | Count | Primary surface | Routine ceiling | Non-routine ceiling |
 |---|---:|---|---:|---:|
@@ -142,9 +323,9 @@ min by voice). The form path stays for users who prefer it.
 
 ---
 
-## 4. Architecture End-State
+## 5. Architecture End-State
 
-### 4.1 Data model
+### 5.1 Data model
 
 The schema converges on these table groups:
 
@@ -182,7 +363,7 @@ The schema converges on these table groups:
 Every table has `tenantId`. Most have `createdAt` / `updatedAt`. New
 tables follow this convention without exception.
 
-### 4.2 Scope model
+### 5.2 Scope model
 
 The unit of scope is a node in the org tree (`orgUnits`). Every viewer
 has:
@@ -200,7 +381,7 @@ Queries take `rootOrgUnitId` and recurse. RBAC permits a viewer to
 query at most their `ownedOrgUnitIds` subtree (or the fund-wide root
 if `isFundWide`).
 
-### 4.3 Cascade
+### 5.3 Cascade
 
 The single most important architectural commitment.
 
@@ -217,7 +398,7 @@ the single chokepoint for all assessment writes. `chairman/assess`
 becomes a special case of "assess your reports" with `assessor =
 chairman`. Every leader gets the same UI on `/team`.
 
-### 4.4 Voice agent layer
+### 5.4 Voice agent layer
 
 Two surfaces:
 
@@ -244,7 +425,7 @@ Two surfaces:
 - Silent-buffer audio priming inside the mic-tap gesture (iOS
   Safari fix)
 
-### 4.5 Agentic memory layer
+### 5.5 Agentic memory layer
 
 End-state: a single canonical `agenticMemories` table with rich fields
 (scope, category, key, value, rationale, citations, confidence,
@@ -272,10 +453,12 @@ RRF when keyword-only retrieval feels insufficient (likely Phase 3).
 - **Write-time dedup** — 0.92 cosine threshold check on insert.
 
 **Verification surface** at `/memory` — every user sees what the AI
-knows about them, can approve / edit / reject. **This is the trust
-hinge.**
+knows about them, can approve / edit / **hard-delete**. The subject of
+a memory has a non-negotiable right to delete it (not just invalidate);
+that right is in `userPreferences` and the audit log records the
+deletion event. This is the trust hinge.
 
-### 4.6 AI coaching layer
+### 5.6 AI coaching layer
 
 Four surfaces, sequenced by trust depth:
 
@@ -290,7 +473,7 @@ Four surfaces, sequenced by trust depth:
    questions per week, transcribes into a private reflection,
    surfaces patterns over time.
 
-### 4.7 Notifications + rhythm
+### 5.7 Notifications + rhythm
 
 - One notification table, daily digest cadence (not per-event blast).
 - Event types: cycle-open, cycle-close, deadline-T7/T3/T1,
@@ -300,7 +483,7 @@ Four surfaces, sequenced by trust depth:
   category opt-in/out and quiet hours.
 - Browser push (already wired) + iOS push (Capacitor) when app ships.
 
-### 4.8 RBAC matrix
+### 5.8 RBAC matrix
 
 | Action | Who can do it |
 |---|---|
@@ -326,10 +509,16 @@ No write skips RBAC. Every check filters by `tenantId`.
 
 ---
 
-## 5. Build Phases
+## 6. Build Phases
 
 Phases are **sequenced** — each unlocks the next. Don't build later
 phases before earlier ones land.
+
+### Phase 0 — Docs bootstrap *(shipped 2026-04-21)*
+
+`MASTER_PLAN.md`, `PROJECT_MAP.md`, `docs/maps/_template.md`,
+`MERIDIAN_REFERENCE.md`, drift + orphan scripts, husky pre-push,
+CLAUDE.md rewrite, MAPS-first memory rule. ✅
 
 ### Phase 1 — Stabilize what exists, ship cascade *(now → 4 weeks)*
 
@@ -351,16 +540,19 @@ UI the Chairman uses. Stop being "Chairman's app."
 - [ ] Submit confirmation modal on MyBridge / MyIsland / team-assess.
 - [ ] Cycle-complete moment after submit.
 - [ ] Notification digest (replace per-event blast).
+- [ ] Subsystem maps written for all 40 subsystems in
+      `docs/PROJECT_MAP.md` (status ⏳ → ✅).
 
 **Definition of done:** a CEO at MGPS can open APEX, see their company
 dashboard, assess each of their 4 direct reports, submit, and the same
 flow that updates the fund-level `aiInsights` table also updates the
 company-level analytics. Same UI used by the Chairman.
 
-### Phase 2 — Voice agent v1 + verification + 1:1 prep *(weeks 5-10)*
+### Phase 2 — Voice agent v1 + verification + 1:1 prep + observability *(weeks 5-10)*
 
 **Goal:** voice does the heavy lifting; users trust where the AI puts
-what they said; managers have AI-prepped briefings before any 1:1.
+what they said; managers have AI-prepped briefings before any 1:1;
+every meaningful event is logged.
 
 - [ ] Voice destination card with "Saved to: <path> · [View] [Capture
       another]" — applied to all 10 capture intents.
@@ -373,10 +565,25 @@ what they said; managers have AI-prepped briefings before any 1:1.
 - [ ] 1:1 prep button on every PersonProfile — generates 90-sec brief
       from memories + recent observations + last cycle gap.
 - [ ] Privacy badge component applied to every user-writable surface.
+- [ ] **Observability scaffolding** (per §3.9):
+  - [ ] AuditLogger helper in `server/_core/audit.ts` for typed audit
+        log writes (`logWrite`, `logAIDecision`, `logRBACDeny`).
+  - [ ] Every governance write calls `logWrite`.
+  - [ ] Every AI surface (intent classifier, insight generator, coach
+        cards, voice route) calls `logAIDecision`.
+  - [ ] Every RBAC failure calls `logRBACDeny`.
+  - [ ] Slow-query warning (>500ms) via Drizzle middleware.
+- [ ] **Failure-mode hardening** (per §3.10):
+  - [ ] LLM-down fallback for voice classifier (keyword router).
+  - [ ] LLM-down fallback for coach cards (last-cached summary).
+  - [ ] Notification delivery records + retry semantics.
+  - [ ] Documented service-degraded banner on read endpoint failures.
 
 **Definition of done:** a CXO captures a thought by voice in a car,
 sees confirmation of where it went, opens 1:1 prep before meeting
-their direct report, reads the AI brief in under 90 seconds.
+their direct report, reads the AI brief in under 90 seconds. Every
+AI decision in the last 7 days can be answered with "model X said Y
+with confidence Z; the user accepted/rejected/edited the result."
 
 ### Phase 3 — Agentic memory + AI coach *(weeks 11-18)*
 
@@ -384,11 +591,12 @@ their direct report, reads the AI brief in under 90 seconds.
 continuous.
 
 - [ ] Harden `agenticMemories` table to full Meridian schema (rich
-      fields, bi-temporal, provenance).
+      fields, bi-temporal, provenance, hard-delete supported per §5.5).
 - [ ] Write-time dedup + keyword-only retrieval first.
 - [ ] Monthly consolidation job (runs at cycle close).
 - [ ] Quality scoring job (nightly).
-- [ ] `/memory` page gains approve / edit / reject controls.
+- [ ] `/memory` page gains approve / edit / **hard-delete** controls
+      (with audit log entry on every delete).
 - [ ] AI coach card on `/me` — read-only weekly summary of "your
       growth this cycle."
 - [ ] Communication Style Memory for the Chairman — learn his
@@ -430,34 +638,63 @@ Will not commit specific items until Phase 1-4 land. Candidate work:
 - Outcomes correlation as a deliberate analytics surface (n grows
   with cascade)
 - Investor-facing snapshots (board pack auto-generation)
+- **Multi-tenant onboarding readiness:** pay down the
+  `TENANT_ID = 1` debt (§2 item 1), add SSO/SAML, formal audit log
+  retention, data-classification controls. Triggered by a second
+  holding company adopting APEX.
+
+### Phase dependencies
+
+```
+Phase 0 (docs)              ← shipped
+        ↓
+Phase 1 (cascade)           ← prerequisite for everything
+        ↓
+        ├──→ Phase 2 (voice + verify + 1:1 + observability)
+        ↓
+        └──→ Phase 3 (memory + coach)  [needs Phase 2 observability]
+                ↓
+                Phase 4 (mobile + calibration + duplex voice)
+                        ↓
+                        Phase 5+ (multi-tenant + integrations + discovery)
+```
 
 ---
 
-## 6. What APEX Is NOT (the anti-list)
+## 7. What APEX Is NOT (the anti-list)
 
 Strict no's. Re-debate these only with a written rationale that
 updates this section.
 
-- **Not multi-tenant SaaS.** One tenant (MEF). One deployment.
+- **Not multi-tenant SaaS.** One tenant (MEF) today. The schema
+  supports multi-tenant; the client hardcoding does not. Onboarding a
+  second holding company is a Phase 5+ effort with its own readiness
+  checklist (§6 Phase 5+).
 - **Not generic HR.** No payroll, no benefits, no recruiting funnel.
   Other tools own these.
 - **Not annual review software.** Performance ≠ APEX. APEX is the
-  rhythm; the annual review is a side-output of the rhythm.
+  rhythm; the annual review is a side-output of the rhythm. The legacy
+  `assessments` table with MILESTONE/QUARTERLY/ANNUAL types is kept
+  for transitional purposes but is not the primary lens.
 - **Not OKR software.** APEX uses mandates (qualitative, evolving),
-  not OKRs.
+  not OKRs. The schema includes `plans.type = OKR` as an optional
+  plan type for company-internal goal cascading but it is not the
+  primary surface.
 - **Not a public product.** No marketing site, no public docs, no
   signup flow.
 - **Not deeply integrated with enterprise stacks.** No Workday,
   Lattice, BambooHR, Greenhouse. We may export CSVs.
 - **Not a goal-tracker for personal life.** Meridian does that.
 - **Not real-time collaborative editing.** Single-author flow per
-  field is fine for monthly cycles.
-- **Not an LLM-curated rating.** AI never rates a person. Humans
-  rate humans.
+  field is fine for monthly cycles. (Open Decision §8: confirm
+  before Phase 2 ships whether co-authoring is genuinely not needed
+  on company reflections.)
+- **Not an LLM-curated rating.** AI never rates a person. AI never
+  ranks a person. Humans rate humans (per §3.5).
 
 ---
 
-## 7. Open Decisions
+## 8. Open Decisions
 
 Living list. Add items here when you flag a decision the project
 hasn't made; close items by linking the answer.
@@ -466,19 +703,50 @@ hasn't made; close items by linking the answer.
       wrap in Phase 4. Should iOS become Phase 2 if usage demands?
 - [ ] **Whisper vs Web Speech API** for voice transcription accuracy
       — Meridian uses S3-upload-then-Whisper for capture; we have
-      Web Speech in Capture. Test side-by-side at some point.
+      Web Speech in Capture. Test side-by-side before Phase 2 ships.
 - [ ] **Notification delivery surface** — email digest? SMS for
       Chairman-only urgent? Slack? Currently in-app + browser push.
+      Decide before Phase 1 ships the digest.
 - [ ] **Cycle alignment across cascade levels** — fund-wide cycle is
       monthly. Should portfolio companies be allowed to run an extra
       mid-month sub-cycle? Default: no. Override case: TBD.
 - [ ] **Agentic memory deletion vs invalidation** — when a user
-      rejects a memory, hard delete or soft (`invalidatedAt`)? Lean
-      toward soft for audit trail.
+      rejects a memory, hard delete or soft (`invalidatedAt`)?
+      **Decided in §5.5:** hard delete for memory subject's own
+      memories; soft for AI-derived memories the subject didn't author.
+      Audit log records the event in both cases.
+- [ ] **Multi-tenant trigger** — what concrete event flips us into
+      Phase 5+ multi-tenant work? Proposed: a second holding company
+      signs a written commitment to adopt APEX. Until then,
+      `TENANT_ID = 1` hardcoding stays.
+- [ ] **Company-specific dimensions** — `/my-island` uses 6 hardcoded
+      `DEFAULT_COMPANY_DIMENSIONS`. Should companies define their own?
+      The `orgUnits.customMetrics` field exists in the schema but
+      isn't wired. Decide in Phase 1 polish or defer to Phase 3.
+- [ ] **Co-authoring on company reflections** — confirm before
+      Phase 2 whether a CEO and CFO co-authoring a company reflection
+      is needed. Default: no.
+- [ ] **HR data import** — do we ingest from an existing Manipal HRIS
+      (employees, roles, reporting lines)? Current path: manual seed
+      + `Onboarding.tsx`. Re-visit when cascade reaches company-level
+      ICs (~Phase 4).
+- [ ] **Non-English voice support** — some portfolio company leaders
+      may prefer Hindi or Kannada. Whisper supports both; intent
+      classifier prompts are English-only today. Defer to Phase 5+.
+- [ ] **Data retention policy** — how long do we keep journals,
+      observations, memories, audit logs? Need a written policy before
+      the second holding company onboards.
+- [ ] **User offboarding** — what happens to a CXO/CEO's data when
+      they leave? Soft-delete vs export-and-purge vs anonymise. Need
+      a written policy before any user actually leaves.
+- [ ] **LLM cost ceiling** — at full saturation (~500 users × 12
+      cycles × N AI calls/cycle), what's the budget? Need monitoring
+      + alerts before Phase 3 (memory + coach surfaces multiply the
+      call rate).
 
 ---
 
-## 8. Document discipline
+## 9. Document discipline
 
 Living rules for this file and the maps:
 
@@ -503,5 +771,6 @@ Living rules for this file and the maps:
 
 ---
 
-*End of master plan. See `docs/PROJECT_MAP.md` for the subsystem index
-and `docs/maps/` for per-subsystem details.*
+*End of master plan. See `docs/PROJECT_MAP.md` for the subsystem index,
+`docs/maps/` for per-subsystem details, and `docs/MERIDIAN_REFERENCE.md`
+for the Meridian patterns we'll port.*
