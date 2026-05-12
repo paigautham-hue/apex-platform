@@ -44,18 +44,18 @@ others via the Forward & Backward Dependencies section.
 
 | Map | Covers | Status |
 |---|---|---|
-| [`org-tree.md`](maps/org-tree.md) | `orgUnits`, `persons`, `roles`, `reportsToRoleId` hierarchy, `dependencyChains` | ⏳ planned |
+| [`org-tree.md`](maps/org-tree.md) | `orgUnits`, `persons`, `roles`, `reportsToRoleId` hierarchy, `dependencyChains` | ✅ current (2026-04-21) |
 | [`scope.md`](maps/scope.md) | `server/scope.ts`, `server/routers/scope.ts`, `client/src/hooks/useViewer.ts`, scoped queries (org tree, direct reports, team submission status) | ✅ current (2026-04-21) |
-| [`people-pages.md`](maps/people-pages.md) | `People.tsx`, `PersonProfile.tsx`, person CRUD | ⏳ planned |
+| [`people-pages.md`](maps/people-pages.md) | `People.tsx`, `PersonProfile.tsx`, person CRUD | ✅ current (2026-04-21) |
 
 ### Universal surfaces (the fractal pages)
 
 | Map | Covers | Status |
 |---|---|---|
-| [`me-surface.md`](maps/me-surface.md) | `Me.tsx`, `MyBridge.tsx`, `MyIsland.tsx`, `TodayFeed.tsx` — the personal workspace | ⏳ planned |
-| [`team-surface.md`](maps/team-surface.md) | `Team.tsx`, direct-report cards, team-submission status | ⏳ planned |
-| [`group-surface.md`](maps/group-surface.md) | `Group.tsx`, org-tree drill-in | ⏳ planned |
-| [`chairman-surface.md`](maps/chairman-surface.md) | `ChairmanDashboard.tsx`, `ChairmanAssess.tsx`, Chairman-only features | ⏳ planned |
+| [`me-surface.md`](maps/me-surface.md) | `Me.tsx`, `MyBridge.tsx`, `MyIsland.tsx`, `TodayFeed.tsx`, `FirstCycleWelcome.tsx` — the personal workspace | ✅ current (2026-04-21) |
+| [`team-surface.md`](maps/team-surface.md) | `Team.tsx`, direct-report cards, team-submission status | ✅ current (2026-04-21) |
+| [`group-surface.md`](maps/group-surface.md) | `Group.tsx`, org-tree drill-in | ✅ current (2026-04-21) |
+| [`chairman-surface.md`](maps/chairman-surface.md) | `ChairmanDashboard.tsx`, `ChairmanAssess.tsx`, Chairman-only features | ✅ current (2026-04-21) |
 
 ### 360 Feedback
 
