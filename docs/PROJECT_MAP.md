@@ -74,9 +74,9 @@ others via the Forward & Backward Dependencies section.
 
 | Map | Covers | Status |
 |---|---|---|
-| [`voice-capture.md`](maps/voice-capture.md) | `Capture.tsx`, `VoiceInput.tsx`, `VoiceJournalCapture.tsx`, `server/ai-voice-intent.ts`, `server/routers/voice.ts` | ⏳ planned |
-| [`voice-realtime.md`](maps/voice-realtime.md) | WebRTC + OpenAI Realtime path (planned Phase 4) | ⏳ planned-future |
-| [`evidence-upload.md`](maps/evidence-upload.md) | `EvidenceUpload.tsx`, `DocumentUpload.tsx`, `ai-extraction.ts`, `financialUploads`, `evidence` table | ⏳ planned |
+| [`voice-capture.md`](maps/voice-capture.md) | `Capture.tsx`, `VoiceInput.tsx`, `VoiceJournalCapture.tsx`, `server/ai-voice-intent.ts`, `server/routers/voice.ts` | ✅ current (2026-04-21) |
+| [`voice-realtime.md`](maps/voice-realtime.md) | WebRTC + OpenAI Realtime path (planned Phase 4) | 🔮 planned-future (2026-04-21) |
+| [`evidence-upload.md`](maps/evidence-upload.md) | `EvidenceUpload.tsx`, `DocumentUpload.tsx`, `ai-extraction.ts`, `financialUploads`, `evidence` table | ✅ current (2026-04-21) |
 
 ### AI surfaces
 
